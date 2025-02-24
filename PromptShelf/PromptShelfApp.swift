@@ -1,10 +1,3 @@
-//
-//  PromptShelfApp.swift
-//  PromptShelf
-//
-//  Created by Jack Felke on 2/23/25.
-//
-
 import SwiftUI
 
 @main
@@ -13,5 +6,7 @@ struct PromptShelfApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified)
     }
 }
