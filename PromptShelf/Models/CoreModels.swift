@@ -213,7 +213,7 @@ public protocol LLMRequestProtocol {
     var model: String { get }
     var useReasoning: Bool { get }
     
-    func fetchImprovement(completion: @escaping (Result<Any, Error>) -> Void)
+    func fetchImprovement() async throws -> String
 }
 
 /// Protocol for API key management
@@ -249,15 +249,13 @@ public struct LLMRequest: LLMRequestProtocol {
         self.useReasoning = useReasoning
     }
     
-    public func fetchImprovement(completion: @escaping (Result<Any, Error>) -> Void) {
+    public func fetchImprovement() async throws -> String {
         // Implementation details would go here depending on the API provider
         // This is a stub that would be replaced with actual implementation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            if self.apiKey.isEmpty || self.apiKey == "invalid" {
-                completion(.failure(NSError(domain: "APIError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Invalid API key"])))
-            } else {
-                completion(.success("API response would go here"))
-            }
+        if self.apiKey.isEmpty || self.apiKey == "invalid" {
+            throw NSError(domain: "APIError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Invalid API key"])
+        } else {
+            return "API response would go here"
         }
     }
 } 

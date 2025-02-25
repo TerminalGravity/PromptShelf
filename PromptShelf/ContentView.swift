@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var store = PromptStore()
+    @EnvironmentObject private var store: PromptStore
     @State private var selectedFolder: String? = nil
     @State private var selectedPrompt: Prompt.ID? = nil
     @State private var selectedPromptType: PromptType = .general

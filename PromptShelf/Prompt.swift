@@ -1,5 +1,11 @@
 import Foundation
 
+// Using typealias to reference types from CoreModels.swift
+// instead of redefining them
+typealias Prompt = PromptShelf.Models.Prompt
+typealias PromptVersion = PromptShelf.Models.PromptVersion
+typealias PromptType = PromptShelf.Models.PromptType
+
 struct PromptVersion: Identifiable, Codable {
     let id: UUID
     var text: String

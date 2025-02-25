@@ -106,8 +106,10 @@ public enum LLMModel: String, CaseIterable, Identifiable {
     }
 }
 
-/// LLM Request Implementation
-public struct LLMRequest {
+// LLM Request Implementation 
+// Note: Using the definitions from CoreModels.swift to avoid duplicates
+
+public struct LLMRequest: LLMRequestProtocol {
     public let apiKey: String
     public let prompt: String
     public let model: String
@@ -120,17 +122,12 @@ public struct LLMRequest {
         self.useReasoning = useReasoning
     }
     
-    public func fetchImprovement(completion: @escaping (Result<Any, Error>) -> Void) {
+    public func fetchImprovement() async throws -> String {
         // In a real implementation, this would call an API
         // For now, we'll just simulate an API call
-        DispatchQueue.global().async {
-            sleep(1) // Simulate network delay
-            
-            // Simulate a successful response
-            let response = "This is a simulated response from the model: \(model)"
-            DispatchQueue.main.async {
-                completion(.success(response))
-            }
-        }
+        try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay (1 second)
+        
+        // Simulate a successful response
+        return "This is a simulated response from the model: \(model)"
     }
 } 

@@ -6,7 +6,7 @@ import SwiftUI
 
 struct TypeTest {
     // Test PromptStore and its dependencies
-    private var store: PromptStore = PromptStore()
+    @ObservedObject private var store: PromptStore = PromptStore()
     
     // Test LLMModel
     private var model: LLMModel = .gpt4
@@ -16,18 +16,16 @@ struct TypeTest {
     
     // Test LLMRequest
     private func testRequest() {
-        let request = LLMRequest(
-            apiKey: "test-key",
-            prompt: "Test prompt",
-            model: LLMModel.gpt4.rawValue
-        )
-        
-        // Test the request method
-        request.fetchImprovement { result in
-            switch result {
-            case .success(let response):
+        Task {
+            do {
+                let request = LLMRequest(
+                    apiKey: "test-key",
+                    prompt: "Test prompt",
+                    model: LLMModel.gpt4.rawValue
+                )
+                let response = try await request.fetchImprovement()
                 print("Success: \(response)")
-            case .failure(let error):
+            } catch {
                 print("Error: \(error.localizedDescription)")
             }
         }

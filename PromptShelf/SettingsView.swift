@@ -1,427 +1,355 @@
 import SwiftUI
 import Foundation
 import AppKit
+import Combine
+// Import needed modules for types
+import PromptShelf.Settings
+import PromptShelf.Models
+import PromptShelf.Services
+
+// MARK: - Settings View
+
+// Using types defined in Settings/SettingsModels.swift
+// instead of redefining them here
+
+// MARK: - ViewModel for Settings
+class SettingsViewModel: ObservableObject {
+    // MARK: - Published Properties
+    
+    // API Keys
+    @Published var apiKey: String = ""
+    @Published var selectedProvider: ModelProvider? = .openAI
+    @Published var selectedModel: LLMModel = .gpt4
+    @Published var showAPIKey: Bool = false
+    @Published var showReasoningModelsOnly: Bool = false
+    @Published var isValidating: Bool = false
+    @Published var showValidationSuccess: Bool = false
+    @Published var showGuide: Bool = true
+    
+    // Navigation
+    @Published var selectedSection: SettingsSection = .apiKeys
+    
+    // Appearance
+    @Published var selectedTheme: AppTheme = .classic
+    
+    // Advanced
+    @Published var rateLimitValue: Double = 5
+    @Published var enableCaching: Bool = true
+    @Published var enableLogging: Bool = false
+    
+    // API Usage
+    @Published var showResetConfirmation: Bool = false
+    
+    // Toast
+    @Published var showToast: Bool = false
+    @Published var toastMessage: String = ""
+    @Published var toastType: ToastType = .success
+    
+    // MARK: - Dependencies
+    let store: PromptStore
+    
+    // MARK: - Initialization
+    init(store: PromptStore) {
+        self.store = store
+    }
+    
+    // MARK: - Methods
+    
+    func validateAPIKey() {
+        isValidating = true
+        // Simulate API key validation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.isValidating = false
+            self.showToast(message: "API key is valid", type: .success)
+        }
+    }
+    
+    func saveAPIKey() {
+        // Save the API key for the selected provider
+        if let provider = selectedProvider {
+            let success = store.saveAPIKey(service: provider.rawValue, key: apiKey)
+            
+            if success {
+                showToast(message: "API key saved successfully", type: .success)
+            } else {
+                showToast(message: "Failed to save API key", type: .error)
+            }
+        }
+    }
+    
+    func deleteAPIKey() {
+        // Delete the API key for the selected provider
+        if let provider = selectedProvider, 
+           let _ = store.getAPIKey(service: provider.rawValue) {
+            let success = store.deleteAPIKey(service: provider.rawValue)
+            
+            if success {
+                apiKey = ""
+                showToast(message: "API key deleted successfully", type: .success)
+            } else {
+                showToast(message: "Failed to delete API key", type: .error)
+            }
+        } else {
+            showToast(message: "No API key to delete", type: .info)
+        }
+    }
+    
+    func showToast(message: String, type: ToastType) {
+        toastMessage = message
+        toastType = type
+        showToast = true
+        
+        // Auto-hide toast after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            self.showToast = false
+        }
+    }
+    
+    func resetAPIUsageStats() {
+        store.resetAPIUsageStats()
+        showToast(message: "API usage statistics reset", type: .success)
+        showResetConfirmation = false
+    }
+}
 
 // MARK: - Settings View
 
 struct SettingsView: View {
-    // Use the ViewModel instead of directly referencing PromptStore
-    @StateObject private var viewModel: SettingsViewModel
-    @State private var showResetConfirmation = false
+    @ObservedObject var viewModel: SettingsViewModel
+    @Environment(\.presentationMode) var presentationMode
     
-    // Initialize with a PromptStore
-    init(store: PromptStore) {
-        // Create the ViewModel using _StateObject wrapper
-        _viewModel = StateObject(wrappedValue: SettingsViewModel(store: store))
-    }
-    
-    // MARK: - Main View Body
+    // MARK: - Body
     
     var body: some View {
         NavigationView {
-            // Left sidebar with setting categories
-            sidebarView
-            
-            // Right content area
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    switch viewModel.selectedSection {
-                    case .apiKeys:
-                        apiKeysView
-                    case .apiUsage:
-                        apiUsageView
-                    case .appearance:
-                        appearanceView
-                    case .advanced:
-                        advancedView
-                    case .about:
-                        aboutView
+            List {
+                // Sidebar sections
+                ForEach(SettingsSection.allCases) { section in
+                    SidebarRow(section: section, isSelected: section == viewModel.selectedSection) {
+                        viewModel.selectedSection = section
                     }
                 }
+            }
+            .listStyle(SidebarListStyle())
+            .frame(minWidth: 200)
+            
+            // Content view based on selected section
+            contentView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .overlay(
-                toastView
-                    .opacity(viewModel.showToast ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.showToast)
-                    .padding(),
-                alignment: .bottom
-            )
         }
-        .frame(width: 900, height: 600)
-    }
-    
-    // MARK: - Sidebar View
-    
-    private var sidebarView: some View {
-        List(selection: $viewModel.selectedSection) {
-            Section(header: Text("Settings")) {
-                sidebarRow(title: "API Keys", icon: "key.fill", section: .apiKeys)
-                sidebarRow(title: "API Usage", icon: "chart.bar.fill", section: .apiUsage)
-                sidebarRow(title: "Appearance", icon: "paintbrush.fill", section: .appearance)
-                sidebarRow(title: "Advanced", icon: "gearshape.2.fill", section: .advanced)
-            }
-            
-            Section(header: Text("Info")) {
-                sidebarRow(title: "About", icon: "info.circle.fill", section: .about)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Label("Close", systemImage: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .labelStyle(.iconOnly)
             }
         }
-        .listStyle(.sidebar)
-        .frame(width: 220)
+        .frame(width: 800, height: 500)
+        .overlay(
+            ToastView(message: viewModel.toastMessage, type: viewModel.toastType, isShowing: $viewModel.showToast)
+        )
     }
     
-    private func sidebarRow(title: String, icon: String, section: SettingsSection) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(viewModel.selectedSection == section ? .accentColor : .gray)
-                .frame(width: 24)
-            
-            Text(title)
-                .font(.system(.body, design: .rounded))
-        }
-        .padding(.vertical, 4)
-        .tag(section)
-    }
+    // MARK: - Content View
     
-    // MARK: - API Keys View
-    
-    private var apiKeysView: some View {
+    @ViewBuilder
+    var contentView: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("API Keys")
-                .font(.title.bold())
-                .foregroundColor(.primary)
+            // Header
+            Text(viewModel.selectedSection.title)
+                .font(.largeTitle)
+                .fontWeight(.bold)
             
-            providerSelectionView
+            Divider()
             
-            if let selectedProvider = viewModel.selectedProvider {
-                // Filter toggle for reasoning models
-                if selectedProvider.models.contains(where: { $0.hasReasoningCapability }) {
-                    Toggle("Show only reasoning-capable models", isOn: $viewModel.showReasoningModelsOnly)
-                        .padding(.bottom, 10)
+            // Content based on selected section
+            ScrollView {
+                switch viewModel.selectedSection {
+                case .apiKeys:
+                    apiKeysSection
+                case .apiUsage:
+                    apiUsageSection
+                case .appearance:
+                    appearanceSection
+                case .advanced:
+                    advancedSection
+                case .about:
+                    aboutSection
+                }
+            }
+        }
+        .padding()
+    }
+    
+    // MARK: - Section Views
+    
+    var apiKeysSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Configure your API keys for language models")
+                .font(.headline)
+            
+            // Provider selection
+            VStack(alignment: .leading) {
+                Text("Select Provider")
+                    .font(.headline)
+                
+                Picker("Provider", selection: $viewModel.selectedProvider) {
+                    ForEach(ModelProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider as ModelProvider?)
+                    }
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.bottom)
+            }
+            
+            // Model selection
+            if let provider = viewModel.selectedProvider {
+                VStack(alignment: .leading) {
+                    Text("Select Model")
+                        .font(.headline)
+                    
+                    Picker("Model", selection: $viewModel.selectedModel) {
+                        let models = viewModel.showReasoningModelsOnly ? 
+                            provider.models.filter { $0.hasReasoningCapability } :
+                            provider.models
+                        
+                        ForEach(models) { model in
+                            Text(model.displayName).tag(model)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.bottom)
+                    
+                    Toggle("Show only models with reasoning capabilities", isOn: $viewModel.showReasoningModelsOnly)
+                        .padding(.bottom)
+                }
+            }
+            
+            // API Key section
+            VStack(alignment: .leading) {
+                HStack {
+                    Text("API Key")
+                        .font(.headline)
+                    
+                    Button(action: {
+                        viewModel.showAPIKey.toggle()
+                    }) {
+                        Image(systemName: viewModel.showAPIKey ? "eye.slash" : "eye")
+                    }
+                    .buttonStyle(.borderless)
                 }
                 
-                // Models for selected provider
-                modelSelectionView(for: selectedProvider)
+                VStack {
+                    HStack {
+                        if viewModel.showAPIKey {
+                            TextField("Enter API key", text: $viewModel.apiKey)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        } else {
+                            SecureField("Enter API key", text: $viewModel.apiKey)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                        
+                        Button("Validate") {
+                            viewModel.validateAPIKey()
+                        }
+                        .disabled(viewModel.apiKey.isEmpty || viewModel.isValidating)
+                        
+                        if viewModel.isValidating {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .padding(.leading, 5)
+                        }
+                    }
+                    
+                    HStack {
+                        Button("Save") {
+                            viewModel.saveAPIKey()
+                        }
+                        .disabled(viewModel.apiKey.isEmpty)
+                        
+                        Button("Delete") {
+                            viewModel.deleteAPIKey()
+                        }
+                    }
+                    .padding(.top, 5)
+                }
+                .padding(.bottom)
+            }
+            
+            if viewModel.showGuide {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("API Key Guide")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            viewModel.showGuide = false
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    
+                    Text("To use AI-powered improvements, you need an API key from your selected provider.")
+                    Text("1. Create an account at the provider's website")
+                    Text("2. Navigate to API section and generate a new key")
+                    Text("3. Copy and paste the key here")
+                    Text("4. Save to securely store for future use")
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.1)))
+            }
+        }
+    }
+    
+    var apiUsageSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Monitor your API usage")
+                .font(.headline)
+            
+            // Usage statistics
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Usage Statistics")
+                    .font(.headline)
+                
+                Group {
+                    Text("Total API Calls: \(viewModel.store.apiUsageStats.totalCalls)")
+                    Text("Total Tokens Used: \(viewModel.store.apiUsageStats.totalTokensUsed)")
+                    Text("Estimated Cost: $\(String(format: "%.2f", viewModel.store.apiUsageStats.estimatedCost()))")
+                    Text("Last Updated: \(viewModel.store.apiUsageStats.lastUpdated.formatted())")
+                }
+                .font(.system(.body, design: .monospaced))
                 
                 Divider()
                 
-                apiKeyInputView
-                
-                Toggle("Show API Key", isOn: $viewModel.showAPIKey)
-                
-                HStack {
-                    Button("Validate API Key") {
-                        viewModel.validateAPIKey()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.apiKey.isEmpty || viewModel.isValidating)
-                    
-                    if viewModel.isValidating {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .scaleEffect(0.8)
-                            .padding(.leading, 5)
-                    }
-                    
-                    Spacer()
-                    
-                    Button("Save API Key") {
-                        viewModel.saveAPIKey()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.apiKey.isEmpty)
-                    
-                    Button("Delete API Key") {
-                        viewModel.deleteAPIKey()
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.red)
-                    .disabled(viewModel.apiKey.isEmpty)
-                }
-                
-                if viewModel.showGuide {
-                    apiGuideView
-                }
-            } else {
-                Text("Please select a provider from the list above")
-                    .foregroundColor(.secondary)
-                    .padding()
-            }
-        }
-    }
-    
-    private var providerSelectionView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Select Provider")
-                .font(.headline)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 15) {
-                    ForEach(ModelProvider.allCases) { provider in
-                        providerCard(provider: provider)
-                    }
-                }
-                .padding(.bottom, 5)
-            }
-        }
-    }
-    
-    private func providerCard(provider: ModelProvider) -> some View {
-        VStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        viewModel.selectedProvider == provider ?
-                        LinearGradient(
-                            colors: [.blue.opacity(0.7), .purple.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ) :
-                        LinearGradient(
-                            colors: [Color.gray.opacity(0.2), Color.gray.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: viewModel.selectedProvider == provider ? .blue.opacity(0.3) : .gray.opacity(0.2), radius: 5)
-                
-                Text(provider.displayName)
-                    .font(.headline)
-                    .foregroundColor(viewModel.selectedProvider == provider ? .white : .primary)
-                    .padding(.vertical, 15)
-                    .padding(.horizontal, 20)
-                    .frame(minWidth: 100)
-            }
-            .frame(height: 50)
-        }
-        .onTapGesture {
-            viewModel.selectedProvider = provider
-            // Reset to the first model in this provider
-            if let firstModel = provider.models.first {
-                viewModel.selectedModel = firstModel
-                if let savedKey = viewModel.store.getAPIKey(service: firstModel.rawValue) {
-                    viewModel.apiKey = savedKey
-                } else {
-                    viewModel.apiKey = ""
-                }
-            }
-        }
-    }
-    
-    private func modelSelectionView(for provider: ModelProvider) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Select Model")
-                .font(.headline)
-            
-            let filteredModels = viewModel.showReasoningModelsOnly ? 
-                provider.models.filter({ $0.hasReasoningCapability }) : 
-                provider.models
-            
-            if filteredModels.isEmpty {
-                Text("No models match the current filter")
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 5)
-            } else {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(filteredModels) { model in
-                            modelRow(model: model)
-                        }
-                    }
-                }
-                .frame(maxHeight: 300)
-            }
-        }
-    }
-    
-    private func modelRow(model: LLMModel) -> some View {
-        HStack {
-            Button(action: {
-                viewModel.selectedModel = model
-                if let savedKey = viewModel.store.getAPIKey(service: model.rawValue) {
-                    viewModel.apiKey = savedKey
-                } else {
-                    viewModel.apiKey = ""
-                }
-            }) {
-                HStack {
-                    ZStack {
-                        Circle()
-                            .stroke(viewModel.selectedModel == model ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: 2)
-                            .frame(width: 20, height: 20)
-                        
-                        if viewModel.selectedModel == model {
-                            Circle()
-                                .fill(Color.accentColor)
-                                .frame(width: 12, height: 12)
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(model.displayName)
-                            .foregroundColor(.primary)
-                            .font(.system(.body, design: .rounded))
-                        
-                        if model.hasReasoningCapability {
-                            HStack(spacing: 4) {
-                                Image(systemName: "brain.fill")
-                                    .font(.caption2)
-                                Text("Reasoning Capable")
-                                    .font(.caption2)
-                            }
-                            .foregroundColor(.blue)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Visual indicator if an API key exists
-                    if viewModel.store.getAPIKey(service: model.rawValue) != nil {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 16))
-                    }
-                }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(viewModel.selectedModel == model ? Color.accentColor.opacity(0.1) : Color.clear)
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-    
-    private var apiKeyInputView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("API Key for \(viewModel.selectedModel.displayName)")
-                .font(.headline)
-            
-            if viewModel.showAPIKey {
-                TextField("Enter API key", text: $viewModel.apiKey)
-                    .textFieldStyle(.roundedBorder)
-                    .disableAutocorrection(true)
-                    .autocapitalization(.none)
-            } else {
-                SecureField("Enter API key", text: $viewModel.apiKey)
-                    .textFieldStyle(.roundedBorder)
-                    .disableAutocorrection(true)
-                    .autocapitalization(.none)
-            }
-        }
-    }
-    
-    private var apiGuideView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("API Key Guide")
+                Text("Usage by Model")
                     .font(.headline)
                 
-                Spacer()
-                
-                Button(action: { viewModel.showGuide = false }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
-                }
-                .buttonStyle(.plain)
-            }
-            
-            VStack(alignment: .leading, spacing: 5) {
-                Text("1. Select your preferred model provider")
-                Text("2. Select a specific model from that provider")
-                Text("3. Enter your API key for the selected model")
-                Text("4. Click 'Validate API Key' to test the connection")
-                Text("5. Save your API key securely in your system keychain")
-            }
-            .font(.system(.body, design: .rounded))
-            .foregroundColor(.secondary)
-            .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
-        }
-    }
-    
-    // MARK: - API Usage View
-    
-    private var apiUsageView: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("API Usage Statistics")
-                .font(.title.bold())
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 20) {
-                usageStatCard(
-                    title: "Total API Calls",
-                    value: "\(viewModel.store.apiUsageStats.totalCalls)",
-                    icon: "arrow.up.arrow.down",
-                    color: .blue
-                )
-                
-                usageStatCard(
-                    title: "Total Tokens Used",
-                    value: "\(viewModel.store.apiUsageStats.totalTokensUsed)",
-                    icon: "character.bubble",
-                    color: .green
-                )
-                
-                usageStatCard(
-                    title: "Estimated Cost",
-                    value: "$\(String(format: "%.2f", viewModel.store.apiUsageStats.estimatedCost()))",
-                    icon: "dollarsign.circle",
-                    color: .orange
-                )
-            }
-            
-            Spacer().frame(height: 10)
-            
-            Text("Usage by Model")
-                .font(.headline)
-            
-            if viewModel.store.apiUsageStats.callsByModel.isEmpty {
-                Text("No API calls have been recorded yet.")
-                    .foregroundColor(.secondary)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(Array(viewModel.store.apiUsageStats.callsByModel.keys.sorted()), id: \.self) { model in
-                        if let calls = viewModel.store.apiUsageStats.callsByModel[model],
-                           let tokens = viewModel.store.apiUsageStats.tokensByModel[model] {
-                            modelUsageRow(
-                                model: model,
-                                calls: calls,
-                                tokens: tokens,
-                                totalCalls: viewModel.store.apiUsageStats.totalCalls
-                            )
-                        }
+                ForEach(Array(viewModel.store.apiUsageStats.callsByModel.keys.sorted()), id: \.self) { model in
+                    if let calls = viewModel.store.apiUsageStats.callsByModel[model],
+                       let tokens = viewModel.store.apiUsageStats.tokensByModel[model] {
+                        Text("\(model): \(calls) calls, \(tokens) tokens")
+                            .font(.system(.body, design: .monospaced))
                     }
                 }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
                 
-                if viewModel.store.apiUsageStats.totalCalls > 0 {
-                    Text("Last updated: \(dateFormatter.string(from: viewModel.store.apiUsageStats.lastUpdated))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 5)
-                }
-                
-                Button("Reset API Usage Data") {
+                Button("Reset Usage Statistics") {
                     viewModel.showResetConfirmation = true
                 }
-                .buttonStyle(.bordered)
-                .foregroundColor(.red)
-                .padding(.top, 10)
+                .padding(.top)
                 .alert(isPresented: $viewModel.showResetConfirmation) {
                     Alert(
-                        title: Text("Reset API Usage Data"),
-                        message: Text("Are you sure you want to reset all API usage data? This cannot be undone."),
+                        title: Text("Reset Usage Statistics"),
+                        message: Text("Are you sure you want to reset all API usage statistics? This action cannot be undone."),
                         primaryButton: .destructive(Text("Reset")) {
-                            viewModel.resetAPIUsageData()
+                            viewModel.resetAPIUsageStats()
                         },
                         secondaryButton: .cancel()
                     )
@@ -430,323 +358,154 @@ struct SettingsView: View {
         }
     }
     
-    private func usageStatCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(color)
-                
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Text(value)
-                .font(.system(.title, design: .rounded))
-                .fontWeight(.bold)
-            
-            Spacer()
-        }
-        .padding()
-        .frame(maxWidth: .infinity, minHeight: 120)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(color.opacity(0.3), lineWidth: 1)
-        )
-    }
-    
-    private func modelUsageRow(model: String, calls: Int, tokens: Int, totalCalls: Int) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(getDisplayName(for: model))
-                    .font(.headline)
-                
-                Spacer()
-                
-                Text("\(calls) calls · \(tokens) tokens")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Usage bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .cornerRadius(5)
-                    
-                    // Filled portion
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue, .purple],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: totalCalls > 0 ? CGFloat(calls) / CGFloat(totalCalls) * geometry.size.width : 0)
-                        .cornerRadius(5)
-                }
-            }
-            .frame(height: 8)
-        }
-    }
-    
-    private func getDisplayName(for modelId: String) -> String {
-        if let model = LLMModel.allCases.first(where: { $0.rawValue == modelId }) {
-            return model.displayName
-        }
-        return modelId
-    }
-    
-    private func resetAPIUsageData() {
-        // Reset the API usage stats
-        viewModel.store.apiUsageStats = PromptStore.APIUsageStats()
-        
-        // Save the reset stats
-        UserDefaults.standard.removeObject(forKey: "APIUsageStats")
-        
-        // Show confirmation toast
-        viewModel.showToast(message: "API usage data has been reset", type: .success)
-    }
-    
-    // MARK: - Appearance View
-    
-    private var appearanceView: some View {
+    var appearanceSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Appearance")
-                .font(.title.bold())
-                .foregroundColor(.primary)
+            Text("Customize the application appearance")
+                .font(.headline)
             
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading) {
                 Text("Theme")
                     .font(.headline)
                 
-                HStack(spacing: 20) {
-                    themeCard(theme: .classic, name: "Classic")
-                    themeCard(theme: .dark, name: "Dark")
-                    themeCard(theme: .light, name: "Light")
-                    themeCard(theme: .system, name: "System")
+                Picker("Theme", selection: $viewModel.selectedTheme) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Text(theme.displayName).tag(theme)
+                    }
                 }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.bottom)
             }
             
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Customization")
-                    .font(.headline)
-                
-                Toggle("Use compact sidebar", isOn: .constant(false))
-                Toggle("Show prompt creation date", isOn: .constant(true))
-                Toggle("Enable animations", isOn: .constant(true))
-            }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
+            // Additional appearance settings could go here
         }
     }
     
-    private func themeCard(theme: AppTheme, name: String) -> some View {
-        Button(action: { viewModel.selectedTheme = theme }) {
-            VStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        theme == .dark ? Color.black :
-                        theme == .light ? Color.white :
-                        Color.gray.opacity(0.3)
-                    )
-                    .frame(width: 120, height: 70)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(viewModel.selectedTheme == theme ? Color.accentColor : Color.clear, lineWidth: 3)
-                    )
-                
-                Text(name)
-                    .foregroundColor(viewModel.selectedTheme == theme ? .accentColor : .primary)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-    
-    // MARK: - Advanced View
-    
-    private var advancedView: some View {
+    var advancedSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Advanced Settings")
-                .font(.title.bold())
-                .foregroundColor(.primary)
+            Text("Advanced settings for power users")
+                .font(.headline)
             
-            VStack(alignment: .leading, spacing: 10) {
-                Text("API Rate Limiting")
+            VStack(alignment: .leading) {
+                Text("Rate Limiting")
                     .font(.headline)
                 
-                VStack(alignment: .leading) {
-                    HStack {
-                        Text("Requests per minute:")
-                        Spacer()
-                        Text("\(Int(viewModel.rateLimitValue))")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Slider(value: $viewModel.rateLimitValue, in: 1...30, step: 1)
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+                Text("API calls per minute: \(Int(viewModel.rateLimitValue))")
+                
+                Slider(value: $viewModel.rateLimitValue, in: 1...20, step: 1)
+                    .padding(.bottom)
             }
             
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Cache Settings")
+            VStack(alignment: .leading) {
+                Text("Caching")
                     .font(.headline)
                 
-                VStack(alignment: .leading) {
-                    Toggle("Enable response caching", isOn: $viewModel.enableCaching)
-                    Text("Caching can reduce API calls by storing responses for similar prompts")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    if viewModel.enableCaching {
-                        HStack {
-                            Text("Cache duration:")
-                            Picker("", selection: .constant(1)) {
-                                Text("1 day").tag(1)
-                                Text("1 week").tag(7)
-                                Text("1 month").tag(30)
-                                Text("Forever").tag(0)
-                            }
-                            .pickerStyle(.menu)
-                        }
-                        .padding(.top, 5)
-                    }
-                    
-                    Divider()
-                    
-                    Button("Clear Cache") {
-                        viewModel.showToast(message: "Cache cleared successfully", type: .success)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!viewModel.enableCaching)
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+                Toggle("Enable API response caching", isOn: $viewModel.enableCaching)
+                    .padding(.bottom)
             }
             
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading) {
                 Text("Logging")
                     .font(.headline)
                 
-                VStack(alignment: .leading) {
-                    Toggle("Enable debug logging", isOn: $viewModel.enableLogging)
-                    
-                    if viewModel.enableLogging {
-                        Toggle("Include API request/response logs", isOn: .constant(true))
-                            .padding(.leading)
-                    }
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+                Toggle("Enable debug logging", isOn: $viewModel.enableLogging)
+                    .padding(.bottom)
             }
         }
     }
     
-    // MARK: - About View
-    
-    private var aboutView: some View {
+    var aboutSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("About PromptShelf")
-                .font(.title.bold())
-                .foregroundColor(.primary)
+                .font(.headline)
             
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Version 1.0")
-                    .font(.headline)
-                Text("© 2023 Prompt Engineering Inc.")
-                    .foregroundColor(.secondary)
-            }
-            
-            Divider()
-            
-            Text("PromptShelf is a powerful tool for managing, organizing, and improving your AI prompts. Enhance your interactions with AI models by creating, storing, and refining prompts for various purposes.")
-                .foregroundColor(.secondary)
-            
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Features")
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("PromptShelf v1.0.0")
+                    .fontWeight(.bold)
                 
-                VStack(alignment: .leading, spacing: 5) {
-                    featureRow(icon: "folder.fill", text: "Organize prompts in folders")
-                    featureRow(icon: "sparkles", text: "Improve prompts with AI assistance")
-                    featureRow(icon: "clock.arrow.circlepath", text: "Track version history")
-                    featureRow(icon: "lock.fill", text: "Secure API key management")
-                    featureRow(icon: "chart.bar.fill", text: "Monitor API usage and costs")
-                }
+                Text("A macOS application for managing, improving, and organizing your prompt library.")
+                
+                Text("© 2024 PromptShelf Team")
+                
+                Link("Visit Our Website", destination: URL(string: "https://www.promptshelf.app")!)
+                    .padding(.top, 5)
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
-            
+        }
+    }
+}
+
+// MARK: - Helper Views
+
+struct SidebarRow: View {
+    let section: SettingsSection
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
             HStack {
+                Image(systemName: section.iconName)
+                    .frame(width: 24, height: 24)
+                
+                Text(section.title)
+                    .font(.headline)
+                
                 Spacer()
-                
-                Button("Visit Website") {
-                    // Open website
-                }
-                .buttonStyle(.bordered)
-                
-                Button("Check for Updates") {
-                    viewModel.showToast(message: "You're running the latest version", type: .success)
-                }
-                .buttonStyle(.borderedProminent)
             }
+            .padding(.vertical, 8)
+            .foregroundColor(isSelected ? .accentColor : .primary)
+            .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+            .cornerRadius(8)
         }
+        .buttonStyle(.plain)
     }
+}
+
+struct ToastView: View {
+    let message: String
+    let type: ToastType
+    @Binding var isShowing: Bool
     
-    private func featureRow(icon: String, text: String) -> some View {
-        HStack(spacing: 15) {
-            Image(systemName: icon)
-                .foregroundColor(.accentColor)
-                .frame(width: 20)
-            
-            Text(text)
-                .foregroundColor(.primary)
-        }
-    }
-    
-    // MARK: - Toast View
-    
-    private var toastView: some View {
-        HStack(spacing: 15) {
-            Image(systemName: viewModel.toastType.iconName)
-                .foregroundColor(viewModel.toastType.color)
-            
-            Text(viewModel.toastMessage)
-                .foregroundColor(.primary)
-            
+    var body: some View {
+        VStack {
             Spacer()
             
-            Button(action: { viewModel.showToast = false }) {
-                Image(systemName: "xmark")
-                    .foregroundColor(.gray)
+            if isShowing {
+                HStack {
+                    Image(systemName: type.iconName)
+                        .foregroundColor(type.color)
+                    
+                    Text(message)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        isShowing = false
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(type.color, lineWidth: 1)
+                )
+                .shadow(radius: 3)
+                .padding()
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.easeInOut, value: isShowing)
             }
-            .buttonStyle(.plain)
         }
-        .padding()
-        .background(Color(.windowBackgroundColor))
-        .transition(.move(edge: .bottom))
     }
-    
-    // MARK: - Helper Functions
-    
-    private let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
+}
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        let store = PromptStore()
+        let viewModel = SettingsViewModel(store: store)
+        return SettingsView(viewModel: viewModel)
+    }
 }
