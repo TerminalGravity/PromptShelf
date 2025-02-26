@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "name": "Swift Import Organization",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "organize_imports",
+          "config": {
+            "groups": [
+              {
+                "name": "Standard Library",
+                "patterns": ["^Foundation$", "^SwiftUI$", "^Combine$", "^AppKit$"]
+              },
+              {
+                "name": "Project Modules",
+                "patterns": ["^PromptShelf"]
+              },
+              {
+                "name": "Models",
+                "patterns": ["^PromptShelf\\.Models$"]
+              },
+              {
+                "name": "Services",
+                "patterns": ["^PromptShelf\\.Services$"]
+              },
+              {
+                "name": "Settings",
+                "patterns": ["^PromptShelf\\.Settings$"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Format",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "format",
+          "config": {
+            "indentSize": 4,
+            "useTabs": false,
+            "lineWidth": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Type Resolution",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "suggest_imports",
+          "config": {
+            "typeMapping": {
+              "SettingsViewModel": "PromptShelf.Settings.SettingsViewModel",
+              "PromptStore": "PromptShelf.Services.PromptStore",
+              "SettingsSection": "PromptShelf.Models.SettingsSection",
+              "ModelProvider": "PromptShelf.Models.ModelProvider",
+              "AppTheme": "PromptShelf.Models.AppTheme",
+              "ToastType": "PromptShelf.Models.ToastType",
+              "Prompt": "PromptShelf.Models.Prompt",
+              "PromptType": "PromptShelf.Models.PromptType",
+              "PromptVersion": "PromptShelf.Models.PromptVersion",
+              "LLMModel": "PromptShelf.Models.LLMModel"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Documentation",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "suggest_documentation",
+          "config": {
+            "docstyle": "swift-doc",
+            "requireParamDoc": true,
+            "requireReturnDoc": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Linting",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "lint",
+          "config": {
+            "rules": [
+              "no_force_unwrap",
+              "no_force_cast",
+              "prefer_self_in_static_references",
+              "prefer_self_type_over_type_of_self",
+              "avoid_state_in_computed_properties",
+              "require_published_in_observable_object"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift File Organization",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "organize_file",
+          "config": {
+            "sections": [
+              {
+                "name": "Imports",
+                "pattern": "^import"
+              },
+              {
+                "name": "Type Declarations",
+                "pattern": "^(class|struct|enum|protocol|extension)"
+              },
+              {
+                "name": "Properties",
+                "pattern": "^\\s+(var|let)"
+              },
+              {
+                "name": "Initializers",
+                "pattern": "^\\s+init"
+              },
+              {
+                "name": "Methods",
+                "pattern": "^\\s+func"
+              },
+              {
+                "name": "Computed Properties",
+                "pattern": "^\\s+var.*\\{"
+              },
+              {
+                "name": "Nested Types",
+                "pattern": "^\\s+(class|struct|enum|protocol)"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Module Structure",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "suggest_refactoring",
+          "config": {
+            "patterns": [
+              {
+                "name": "Move Types to Appropriate Files",
+                "pattern": "(?<=struct|class|enum)\\s+\\w+(?=.*\\{)",
+                "suggestion": "Consider moving this type to its own file if it's not closely related to the main type in this file."
+              },
+              {
+                "name": "Consolidate Imports",
+                "pattern": "import\\s+\\w+",
+                "suggestion": "Consider using `@_exported import PromptShelf.Models` for shared imports across the module."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Module Optimization",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "suggest_refactoring",
+          "config": {
+            "patterns": [
+              {
+                "name": "Optimize Model Imports",
+                "pattern": "import\\s+PromptShelf\\.Models",
+                "suggestion": "Consider using `@_exported import PromptShelf.Models` if this file frequently references model types."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+} 

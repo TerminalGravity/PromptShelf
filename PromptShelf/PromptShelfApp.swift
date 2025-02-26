@@ -1,5 +1,6 @@
 import SwiftUI
 
+// Import the Models module
 @main
 struct PromptShelfApp: App {
     // Create a single instance of PromptStore to share across the app

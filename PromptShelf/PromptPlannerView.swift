@@ -702,12 +702,7 @@ struct PlannerStep {
     var complete: Bool
 }
 
-enum PlannerStep: Int, CaseIterable {
-    case analyze = 0
-    case clarifyQuestions = 1
-    case createPlan = 2
-    case implementPlan = 3
-}
+// Using PlannerStep from PromptShelfTypes.swift instead of redefining it here
 
 struct StepProgressViewPlanner: View {
     let currentStep: PlannerStep

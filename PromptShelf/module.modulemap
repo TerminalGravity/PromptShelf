@@ -1,0 +1,23 @@
+framework module PromptShelf {
+    umbrella header "PromptShelf.h"
+    
+    export *
+    module * { export * }
+    
+    explicit module Models {
+        header "Models/CoreModels.swift"
+        header "Models/LLMModels.swift"
+        export *
+    }
+    
+    explicit module Settings {
+        header "Settings/SettingsModels.swift"
+        header "Settings/SettingsViewModel.swift"
+        export *
+    }
+    
+    explicit module Services {
+        header "Services/PromptStore.swift"
+        export *
+    }
+} 

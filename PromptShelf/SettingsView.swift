@@ -2,121 +2,16 @@ import SwiftUI
 import Foundation
 import AppKit
 import Combine
-// Import needed modules for types
-import PromptShelf.Settings
-import PromptShelf.Models
-import PromptShelf.Services
-
-// MARK: - Settings View
-
-// Using types defined in Settings/SettingsModels.swift
-// instead of redefining them here
-
-// MARK: - ViewModel for Settings
-class SettingsViewModel: ObservableObject {
-    // MARK: - Published Properties
-    
-    // API Keys
-    @Published var apiKey: String = ""
-    @Published var selectedProvider: ModelProvider? = .openAI
-    @Published var selectedModel: LLMModel = .gpt4
-    @Published var showAPIKey: Bool = false
-    @Published var showReasoningModelsOnly: Bool = false
-    @Published var isValidating: Bool = false
-    @Published var showValidationSuccess: Bool = false
-    @Published var showGuide: Bool = true
-    
-    // Navigation
-    @Published var selectedSection: SettingsSection = .apiKeys
-    
-    // Appearance
-    @Published var selectedTheme: AppTheme = .classic
-    
-    // Advanced
-    @Published var rateLimitValue: Double = 5
-    @Published var enableCaching: Bool = true
-    @Published var enableLogging: Bool = false
-    
-    // API Usage
-    @Published var showResetConfirmation: Bool = false
-    
-    // Toast
-    @Published var showToast: Bool = false
-    @Published var toastMessage: String = ""
-    @Published var toastType: ToastType = .success
-    
-    // MARK: - Dependencies
-    let store: PromptStore
-    
-    // MARK: - Initialization
-    init(store: PromptStore) {
-        self.store = store
-    }
-    
-    // MARK: - Methods
-    
-    func validateAPIKey() {
-        isValidating = true
-        // Simulate API key validation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.isValidating = false
-            self.showToast(message: "API key is valid", type: .success)
-        }
-    }
-    
-    func saveAPIKey() {
-        // Save the API key for the selected provider
-        if let provider = selectedProvider {
-            let success = store.saveAPIKey(service: provider.rawValue, key: apiKey)
-            
-            if success {
-                showToast(message: "API key saved successfully", type: .success)
-            } else {
-                showToast(message: "Failed to save API key", type: .error)
-            }
-        }
-    }
-    
-    func deleteAPIKey() {
-        // Delete the API key for the selected provider
-        if let provider = selectedProvider, 
-           let _ = store.getAPIKey(service: provider.rawValue) {
-            let success = store.deleteAPIKey(service: provider.rawValue)
-            
-            if success {
-                apiKey = ""
-                showToast(message: "API key deleted successfully", type: .success)
-            } else {
-                showToast(message: "Failed to delete API key", type: .error)
-            }
-        } else {
-            showToast(message: "No API key to delete", type: .info)
-        }
-    }
-    
-    func showToast(message: String, type: ToastType) {
-        toastMessage = message
-        toastType = type
-        showToast = true
-        
-        // Auto-hide toast after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            self.showToast = false
-        }
-    }
-    
-    func resetAPIUsageStats() {
-        store.resetAPIUsageStats()
-        showToast(message: "API usage statistics reset", type: .success)
-        showResetConfirmation = false
-    }
-}
 
 // MARK: - Settings View
 
 struct SettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @Environment(\.presentationMode) var presentationMode
+    
+    init(store: PromptStore) {
+        self.viewModel = SettingsViewModel(promptStore: store)
+    }
     
     // MARK: - Body
     
@@ -161,7 +56,7 @@ struct SettingsView: View {
     var contentView: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
-            Text(viewModel.selectedSection.title)
+            Text(viewModel.selectedSection.displayName)
                 .font(.largeTitle)
                 .fontWeight(.bold)
             
@@ -180,6 +75,8 @@ struct SettingsView: View {
                     advancedSection
                 case .about:
                     aboutSection
+                default:
+                    Text("Section not implemented yet")
                 }
             }
         }
@@ -446,7 +343,7 @@ struct SidebarRow: View {
                 Image(systemName: section.iconName)
                     .frame(width: 24, height: 24)
                 
-                Text(section.title)
+                Text(section.displayName)
                     .font(.headline)
                 
                 Spacer()
@@ -505,7 +402,6 @@ struct ToastView: View {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         let store = PromptStore()
-        let viewModel = SettingsViewModel(store: store)
-        return SettingsView(viewModel: viewModel)
+        return SettingsView(store: store)
     }
 }

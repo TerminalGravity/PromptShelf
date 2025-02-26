@@ -187,7 +187,7 @@ struct ImportExportView: View {
             // Create export data structure with all app data
             struct AppBackup: Codable {
                 let prompts: [UUID: Prompt]
-                let apiUsageStats: PromptStore.APIUsageStats
+                let apiUsageStats: APIUsageStats
                 let appVersion: String
                 let exportDate: Date
             }
@@ -243,7 +243,7 @@ struct ImportExportView: View {
                     // Define the backup structure
                     struct AppBackup: Codable {
                         let prompts: [UUID: Prompt]
-                        let apiUsageStats: PromptStore.APIUsageStats
+                        let apiUsageStats: APIUsageStats
                         let appVersion: String
                         let exportDate: Date
                     }
