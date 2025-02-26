@@ -117,4 +117,7 @@ Temporary Items
 
 # Local configuration files
 .env
-.local 
+.local
+
+# Xcode build artifacts
+*.xcarchive 

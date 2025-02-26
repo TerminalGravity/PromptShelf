@@ -10,11 +10,12 @@ import SwiftUI
 import Foundation
 import Combine
 import PromptShelf.Services
+import PromptShelf.Models
 
 // MARK: - [Name]View
 
 /// [Description of the view]
-/// - Note: Follow Cursor rules for documentation and organization (see .cursorrules)
+/// - Note: Follow Cursor rules for documentation, organization, linting, and async/await usage (see .cursorrules)
 struct [Name]View: View {
     // MARK: - Properties
     
@@ -40,10 +41,24 @@ struct [Name]View: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
-                            // Action
+                            Task {
+                                do {
+                                    try await viewModel.performAction("New Item")
+                                } catch {
+                                    print("Action failed: \(error.localizedDescription)")
+                                }
+                            }
                         }) {
                             Image(systemName: "plus")
                         }
+                        .disabled(viewModel.isLoading)
+                    }
+                    
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            viewModel.cancelTasks()
+                        }
+                        .disabled(!viewModel.isLoading)
                     }
                 }
         }
@@ -69,14 +84,32 @@ struct [Name]View: View {
             if viewModel.isLoading {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle())
+                    .padding()
+                
+                Button("Cancel Operation") {
+                    viewModel.cancelTasks()
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.red)
+                .padding(.top, 8)
             }
             
             Button("Perform Action") {
-                viewModel.performAction(input: "Test")
+                Task {
+                    do {
+                        try await viewModel.performAction("Test")
+                    } catch {
+                        print("Action failed: \(error.localizedDescription)")
+                    }
+                }
             }
+            .buttonStyle(.borderedProminent)
+            .padding()
+            .disabled(viewModel.isLoading)
         }
         .padding()
         .background(Color.black) // Dark theme background
+        .foregroundColor(.white) // Ensure text visibility in dark theme
     }
     
     // MARK: - Helper Views
@@ -88,6 +121,7 @@ struct [Name]View: View {
             Text("Helper view")
         }
         .background(Color.black.opacity(0.8))
+        .foregroundColor(.white)
     }
 }
 

@@ -65,7 +65,21 @@
               "Prompt": "PromptShelf.Models.Prompt",
               "PromptType": "PromptShelf.Models.PromptType",
               "PromptVersion": "PromptShelf.Models.PromptVersion",
-              "LLMModel": "PromptShelf.Models.LLMModel"
+              "LLMModel": "PromptShelf.Models.LLMModel",
+              "LLMRequest": "PromptShelf.Models.LLMRequest",
+              "PromptManaging": "PromptShelf.Models.PromptManaging",
+              "APIKeyManaging": "PromptShelf.Models.APIKeyManaging",
+              "CacheSettings": "PromptShelf.Models.CacheSettings",
+              "ModelProviderType": "PromptShelf.Models.ModelProvider",
+              "LLMModelType": "PromptShelf.Models.LLMModel",
+              "PromptTypeEnum": "PromptShelf.Models.PromptType",
+              "PromptVersionType": "PromptShelf.Models.PromptVersion",
+              "PromptModelType": "PromptShelf.Models.Prompt",
+              "APIUsageStatsType": "PromptShelf.Models.APIUsageStats",
+              "LLMRequestType": "PromptShelf.Models.LLMRequest",
+              "LLMRequestProtocolType": "PromptShelf.Models.LLMRequestProtocol",
+              "APIKeyManagingType": "PromptShelf.Models.APIKeyManaging",
+              "SettingsSectionType": "PromptShelf.Models.SettingsSection"
             }
           }
         }
@@ -98,7 +112,12 @@
               "prefer_self_in_static_references",
               "prefer_self_type_over_type_of_self",
               "avoid_state_in_computed_properties",
-              "require_published_in_observable_object"
+              "require_published_in_observable_object",
+              "avoid_state_in_views",
+              "enforce_observable_object_usage",
+              "enforce_async_await_usage",
+              "require_task_cancellation",
+              "suggest_task_cancellation_handling"
             ]
           }
         }
@@ -180,6 +199,29 @@
                 "name": "Optimize Model Imports",
                 "pattern": "import\\s+PromptShelf\\.Models",
                 "suggestion": "Consider using `@_exported import PromptShelf.Models` if this file frequently references model types."
+              },
+              {
+                "name": "Optimize Service Imports",
+                "pattern": "import\\s+PromptShelf\\.Services",
+                "suggestion": "Consider using `@_exported import PromptShelf.Services` if this file frequently references service types."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swift Template Usage",
+      "pattern": "*.swift",
+      "actions": [
+        {
+          "type": "suggest_refactoring",
+          "config": {
+            "patterns": [
+              {
+                "name": "Use Project Templates",
+                "pattern": "^(class|struct|enum|protocol)\\s+\\w+",
+                "suggestion": "Consider using templates from `PromptShelf/Templates/` for new files (e.g., `SwiftFileTemplate.swift`, `ViewModelTemplate.swift`, `ServiceTemplate.swift`, `TestTemplate.swift`)."
               }
             ]
           }
