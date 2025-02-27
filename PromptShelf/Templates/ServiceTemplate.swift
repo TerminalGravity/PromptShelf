@@ -10,12 +10,9 @@ import Foundation
 import SwiftUI
 import Combine
 
-// This is a template file that should not be compiled directly
-// It's used as a template for creating new service classes
-
-#if DEBUG
 // MARK: - ServiceTemplate
 
+#if DEBUG && !ENABLE_TESTING
 /// Template for creating new services
 /// This is a template file and should not be compiled directly
 public struct ServiceTemplate {
@@ -38,6 +35,7 @@ public struct ServiceTemplate {
         import Foundation
         import SwiftUI
         import Combine
+        import PromptShelf.Models
 
         // MARK: - \(name)Service
 
@@ -74,5 +72,11 @@ public struct ServiceTemplate {
         }
         """
     }
+}
+#else
+// Empty implementation for non-DEBUG builds
+// This prevents compilation issues in the main target
+struct ServiceTemplate {
+    // Empty placeholder
 }
 #endif 

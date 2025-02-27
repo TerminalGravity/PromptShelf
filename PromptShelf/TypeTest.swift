@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // This file is used to test that all types are correctly defined
 // and accessible in the module

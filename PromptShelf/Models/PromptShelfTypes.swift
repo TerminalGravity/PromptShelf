@@ -1,9 +1,8 @@
 import Foundation
 import SwiftUI
+import Combine
 
-// This file is now a bridge for backward compatibility
-// All core types are defined in Types.swift
+// This file is now just a placeholder to maintain the file structure
+// All type aliases are now defined in Types.swift
 
-// This ensures existing imports continue to work
-// while centralizing type definitions
-public typealias PromptShelfType = Void 
+// No additional implementations needed here as they're already in Types.swift 

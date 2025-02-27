@@ -10,12 +10,9 @@ import Foundation
 import SwiftUI
 import Combine
 
-// This is a template file that should not be compiled directly
-// It's used as a template for creating new view model classes
-
-#if DEBUG
 // MARK: - ViewModelTemplate
 
+#if DEBUG && !ENABLE_TESTING
 /// Template for creating new view models
 /// This is a template file and should not be compiled directly
 public struct ViewModelTemplate {
@@ -38,6 +35,8 @@ public struct ViewModelTemplate {
         import Foundation
         import SwiftUI
         import Combine
+        import PromptShelf.Models
+        import PromptShelf.Services
 
         // MARK: - \(name)ViewModel
 
@@ -78,5 +77,11 @@ public struct ViewModelTemplate {
         }
         """
     }
+}
+#else
+// Empty implementation for non-DEBUG builds
+// This prevents compilation issues in the main target
+struct ViewModelTemplate {
+    // Empty placeholder
 }
 #endif 

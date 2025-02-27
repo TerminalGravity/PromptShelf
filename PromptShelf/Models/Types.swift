@@ -1406,9 +1406,9 @@ public class SettingsViewModel: ObservableObject {
     @Published public var toastDuration: Double = 3.0
     
     // Reference to the prompt store
-    private var promptStore: PromptManaging
+    private var promptStore: any PromptManaging
     
-    public init(promptStore: PromptManaging) {
+    public init(promptStore: any PromptManaging) {
         self.promptStore = promptStore
         
         // Load API keys from the store
@@ -1543,4 +1543,57 @@ public typealias SettingsSectionType = SettingsSection
 public typealias AppThemeType = AppTheme
 public typealias ToastTypeType = ToastType
 public typealias CacheSettingsType = CacheSettings
-public typealias PromptStoreType = PromptStore 
+public typealias PromptStoreType = PromptStore
+
+// MARK: - UI Components
+
+/// Toast view for displaying messages
+public struct ToastView: View {
+    let message: String
+    let type: ToastType
+    @Binding var isShowing: Bool
+    
+    public var body: some View {
+        if isShowing {
+            VStack {
+                HStack(alignment: .center, spacing: 12) {
+                    type.icon
+                        .foregroundColor(type.iconColor)
+                    
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        withAnimation {
+                            isShowing = false
+                        }
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.windowBackgroundColor))
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                )
+                .padding(.horizontal)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        withAnimation {
+                            isShowing = false
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+        }
+    }
+} 

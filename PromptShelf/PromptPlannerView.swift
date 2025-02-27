@@ -26,7 +26,7 @@ struct PromptPlannerView: View {
     
     // Planning step
     @State private var planSteps = [
-        PlannerStep(id: 1, text: "", complete: false)
+        PlannerStepItem(id: 1, text: "", complete: false)
     ]
     @State private var planNotes = ""
     
@@ -428,7 +428,7 @@ struct PromptPlannerView: View {
     }
     
     private func addPlanStep() {
-        let newStep = PlannerStep(
+        let newStep = PlannerStepItem(
             id: planSteps.map { $0.id }.max() ?? 0 + 1,
             text: "",
             complete: false
@@ -569,7 +569,7 @@ struct PromptPlannerView: View {
                 if let colonRange = trimmedLine.range(of: ":") {
                     let stepText = String(trimmedLine[colonRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
                     if !stepText.isEmpty {
-                        let newStep = PlannerStep(
+                        let newStep = PlannerStepItem(
                             id: planSteps.count + 1,
                             text: stepText,
                             complete: false
@@ -579,7 +579,7 @@ struct PromptPlannerView: View {
                 } else if let dotRange = trimmedLine.range(of: ". ") {
                     let stepText = String(trimmedLine[dotRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
                     if !stepText.isEmpty {
-                        let newStep = PlannerStep(
+                        let newStep = PlannerStepItem(
                             id: planSteps.count + 1,
                             text: stepText,
                             complete: false
@@ -592,7 +592,7 @@ struct PromptPlannerView: View {
         
         // If no steps were found, add a default empty step
         if planSteps.isEmpty {
-            planSteps.append(PlannerStep(id: 1, text: "", complete: false))
+            planSteps.append(PlannerStepItem(id: 1, text: "", complete: false))
         }
     }
     
@@ -696,13 +696,14 @@ struct PlannerQuestion {
     var answer: String
 }
 
-struct PlannerStep {
+struct PlannerStepItem {
     var id: Int
     var text: String
     var complete: Bool
 }
 
-// Using PlannerStep from PromptShelfTypes.swift instead of redefining it here
+// Using PlannerStep from Types.swift for the enum
+// Using PlannerStepItem for the local step item structure
 
 struct StepProgressViewPlanner: View {
     let currentStep: PlannerStep
@@ -732,21 +733,6 @@ struct StepProgressViewPlanner: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-        }
-    }
-}
-
-extension PlannerStep {
-    var title: String {
-        switch self {
-        case .analyze:
-            return "Analyze"
-        case .clarifyQuestions:
-            return "Questions"
-        case .createPlan:
-            return "Plan"
-        case .implementPlan:
-            return "Implement"
         }
     }
 }
