@@ -1557,8 +1557,8 @@ public struct ToastView: View {
         if isShowing {
             VStack {
                 HStack(alignment: .center, spacing: 12) {
-                    type.icon
-                        .foregroundColor(type.iconColor)
+                    Image(systemName: type.iconName)
+                        .foregroundColor(type.color)
                     
                     Text(message)
                         .font(.subheadline)

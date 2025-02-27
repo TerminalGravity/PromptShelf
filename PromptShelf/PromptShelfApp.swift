@@ -1,4 +1,5 @@
 import SwiftUI
+// No need to import PromptShelf.Models as we're in the same module
 
 // Import the Models module
 @main

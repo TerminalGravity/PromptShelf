@@ -35,8 +35,6 @@ public struct ViewModelTemplate {
         import Foundation
         import SwiftUI
         import Combine
-        import PromptShelf.Models
-        import PromptShelf.Services
 
         // MARK: - \(name)ViewModel
 

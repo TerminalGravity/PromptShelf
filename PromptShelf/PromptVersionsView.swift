@@ -881,64 +881,8 @@ struct ComparisonView: View {
 // MARK: - ToastView
 /// A view that displays toast notifications with different styles based on type
 extension PromptVersionsView {
-    struct ToastView: View {
-        let message: String
-        let type: ToastType
-        @Binding var isShowing: Bool
-        
-        @Environment(\.colorScheme) private var colorScheme
-        
-        private var backgroundColor: Color {
-            colorScheme == .dark ? Color(.windowBackgroundColor).opacity(0.95) : Color(.windowBackgroundColor)
-        }
-        
-        private var textColor: Color {
-            colorScheme == .dark ? Color.white : Color.primary
-        }
-        
-        var body: some View {
-            VStack {
-                Spacer()
-                
-                HStack {
-                    Image(systemName: type.iconName)
-                        .foregroundColor(type.color)
-                        .font(.system(size: 16, weight: .semibold))
-                    
-                    Text(message)
-                        .foregroundColor(textColor)
-                        .font(.system(size: 14))
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        withAnimation {
-                            isShowing = false
-                        }
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(colorScheme == .dark ? .gray : .secondary)
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(backgroundColor)
-                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(type.color, lineWidth: 1)
-                )
-                .padding()
-            }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.easeInOut(duration: 0.3), value: isShowing)
-        }
-    }
+    // Using the shared ToastView implementation from Types.swift
+    // This comment is kept to maintain the section marker
 }
 
 // No duplicate structs needed - they've been properly implemented above 

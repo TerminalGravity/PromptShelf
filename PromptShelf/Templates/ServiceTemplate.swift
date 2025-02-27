@@ -35,7 +35,6 @@ public struct ServiceTemplate {
         import Foundation
         import SwiftUI
         import Combine
-        import PromptShelf.Models
 
         // MARK: - \(name)Service
 
