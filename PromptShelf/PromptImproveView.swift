@@ -20,6 +20,9 @@ struct PromptImproveView: View {
     @State private var toastType: ToastType = .info
     @State private var isModelChanging = false
     @State private var improvementTask: Task<Void, Never>? = nil
+    @State private var retryCount = 0
+    @State private var showDiff = false
+    @State private var isValidatingPrompt = false
     
     // Environment support for dark mode
     @Environment(\.colorScheme) private var colorScheme
@@ -34,6 +37,21 @@ struct PromptImproveView: View {
     /// Whether the selected model supports reasoning capability
     private var canUseReasoning: Bool {
         store.selectedLLMModel.hasReasoningCapability
+    }
+    
+    /// Whether the API key is configured for the selected model
+    private var isAPIKeyConfigured: Bool {
+        store.isProviderConfigured(store.selectedLLMModel.provider)
+    }
+    
+    /// Get the list of providers that have API keys configured
+    private var configuredProviders: [ModelProvider] {
+        return ModelProvider.allCases.filter { store.isProviderConfigured($0) }
+    }
+    
+    /// Checks if the selected model belongs to a provider that has a configured API key
+    private var isSelectedModelAvailable: Bool {
+        return configuredProviders.contains(store.selectedLLMModel.provider)
     }
     
     /// Primary background color for the view based on current theme
@@ -66,6 +84,12 @@ struct PromptImproveView: View {
         colorScheme == .dark ? Color.orange.opacity(0.2) : Color.orange.opacity(0.1)
     }
     
+    /// Button is disabled when no API keys at all or when generating improvements
+    private var isGenerateButtonDisabled: Bool {
+        (configuredProviders.isEmpty && !isAPIKeyConfigured) ||
+        isImproving || isModelChanging || prompt == nil || isValidatingPrompt
+    }
+    
     // MARK: - View Body
     
     var body: some View {
@@ -84,6 +108,7 @@ struct PromptImproveView: View {
                     isShowing = false
                 }
                 .buttonStyle(.bordered)
+                .help("Close this window and return to the main view")
             }
             
             // Original prompt
@@ -115,9 +140,22 @@ struct PromptImproveView: View {
                             HStack {
                                 Text(model.displayName)
                                     .foregroundColor(textColor)
+                                    .opacity(store.isProviderConfigured(model.provider) ? 1.0 : 0.5)
+                                
                                 if model.hasReasoningCapability {
                                     Image(systemName: "brain.fill")
                                         .foregroundColor(.blue)
+                                        .font(.caption)
+                                }
+                                
+                                // Show indicator for configured keys
+                                if store.isProviderConfigured(model.provider) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.caption)
+                                } else {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .foregroundColor(.orange)
                                         .font(.caption)
                                 }
                             }.tag(model)
@@ -126,6 +164,13 @@ struct PromptImproveView: View {
                     .pickerStyle(.menu)
                     .frame(width: 250)
                     .disabled(isImproving)
+                    .help("Select the AI model to use for improving your prompt")
+                    
+                    // Show badge with number of configured providers
+                    Text("\(configuredProviders.count)/\(ModelProvider.allCases.count) providers configured")
+                        .font(.caption)
+                        .foregroundColor(secondaryTextColor)
+                        .padding(.leading, 4)
                     
                     Spacer()
                 }
@@ -151,6 +196,18 @@ struct PromptImproveView: View {
                 HStack {
                     Spacer()
                     
+                    if isImproving {
+                        Button("Cancel") {
+                            improvementTask?.cancel()
+                            isImproving = false
+                            displayToast(message: "Improvement cancelled", type: .info)
+                        }
+                        .buttonStyle(.bordered)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.2), value: isImproving)
+                        .help("Cancel the current improvement process")
+                    }
+                    
                     if isModelChanging {
                         Text("Updating model selection...")
                             .font(.caption)
@@ -164,18 +221,42 @@ struct PromptImproveView: View {
                         }
                     }) {
                         if isImproving {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .scaleEffect(0.8)
-                                .padding(.horizontal, 10)
+                            HStack {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .scaleEffect(0.8)
+                                    .padding(.horizontal, 5)
+                                
+                                Text("Generating improvement...")
+                                    .font(.callout)
+                            }
+                            .padding(.horizontal, 5)
+                        } else if isValidatingPrompt {
+                            HStack {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .scaleEffect(0.8)
+                                Text("Validating prompt...")
+                                    .font(.callout)
+                            }
                         } else {
-                            Text("Improve with \(store.selectedLLMModel.displayName)")
+                            if !configuredProviders.isEmpty && !isAPIKeyConfigured {
+                                // The current provider isn't configured but others are
+                                Text("Use Available Provider")
+                            } else {
+                                Text("Improve with \(store.selectedLLMModel.displayName)")
+                            }
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isImproving || isModelChanging || prompt == nil || 
-                              store.getAPIKey(service: store.selectedLLMModel.provider.rawValue) == nil)
+                    .disabled(isGenerateButtonDisabled)
                     .animation(.easeInOut(duration: 0.2), value: isImproving)
+                    .animation(.easeInOut(duration: 0.2), value: isValidatingPrompt)
+                    .help(isAPIKeyConfigured ? 
+                          "Generate an improved version of your prompt" : 
+                          configuredProviders.isEmpty ? 
+                              "API key is required. Configure it in Settings." :
+                              "This provider is not configured, but others are available.")
                 }
             }
             
@@ -199,6 +280,13 @@ struct PromptImproveView: View {
                         
                         Spacer()
                         
+                        Toggle("Show Diff", isOn: $showDiff)
+                            .toggleStyle(SwitchToggleStyle())
+                            .help("Show the differences between original and improved versions")
+                            .foregroundColor(textColor)
+                            .labelsHidden()
+                            .padding(.horizontal, 5)
+                        
                         if !reasoningText.isEmpty {
                             Button(action: { 
                                 withAnimation {
@@ -211,6 +299,7 @@ struct PromptImproveView: View {
                                 }
                             }
                             .buttonStyle(.bordered)
+                            .help("Toggle visibility of the AI's reasoning process")
                         }
                     }
                     
@@ -236,12 +325,22 @@ struct PromptImproveView: View {
                     }
                     
                     ScrollView {
-                        Text(improvedText)
+                        if showDiff {
+                            SuggestionRow(
+                                original: prompt?.text ?? "",
+                                improved: improvedText,
+                                textColor: textColor,
+                                backgroundColor: improvedBackgroundColor
+                            )
                             .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(improvedBackgroundColor)
-                            .cornerRadius(8)
-                            .foregroundColor(textColor)
+                        } else {
+                            Text(improvedText)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(improvedBackgroundColor)
+                                .cornerRadius(8)
+                                .foregroundColor(textColor)
+                        }
                     }
                     .frame(height: showReasoning ? 140 : 180)
                     .animation(.easeInOut(duration: 0.3), value: showReasoning)
@@ -252,9 +351,11 @@ struct PromptImproveView: View {
                                 improvedText = ""
                                 reasoningText = ""
                                 showReasoning = false
+                                showDiff = false
                             }
                         }
                         .buttonStyle(.bordered)
+                        .help("Clear the current improvement")
                         
                         Spacer()
                         
@@ -263,6 +364,7 @@ struct PromptImproveView: View {
                             displayToast(message: "Copied to clipboard", type: .success)
                         }
                         .buttonStyle(.bordered)
+                        .help("Copy the improved prompt to the clipboard")
                         
                         Button("Apply Improvement") {
                             Task {
@@ -270,6 +372,7 @@ struct PromptImproveView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        .help("Save this improvement as a new version of the prompt")
                     }
                 }
                 .transition(.opacity)
@@ -279,7 +382,7 @@ struct PromptImproveView: View {
             Spacer()
             
             // API key management
-            if store.getAPIKey(service: store.selectedLLMModel.provider.rawValue) == nil {
+            if !isAPIKeyConfigured {
                 HStack {
                     Image(systemName: "exclamationmark.triangle")
                         .foregroundColor(.orange)
@@ -299,12 +402,13 @@ struct PromptImproveView: View {
                         )
                     }
                     .buttonStyle(.bordered)
+                    .help("Go to Settings to add or update your API keys")
                 }
                 .padding()
                 .background(warningBackgroundColor)
                 .cornerRadius(8)
                 .transition(.opacity)
-                .animation(.easeInOut(duration: 0.3), value: store.getAPIKey(service: store.selectedLLMModel.provider.rawValue) == nil)
+                .animation(.easeInOut(duration: 0.3), value: !isAPIKeyConfigured)
             }
         }
         .padding()
@@ -349,42 +453,160 @@ struct PromptImproveView: View {
     
     // MARK: - Methods
     
+    /// Validates the prompt before sending to the LLM
+    private func validatePrompt(_ text: String) -> Bool {
+        // Check for prompt length - most APIs have token limits
+        if text.count > 10000 {
+            errorMessage = "Prompt is too long (over 10,000 characters). Please reduce the length."
+            displayToast(message: errorMessage ?? "Prompt is too long", type: .error)
+            return false
+        }
+        
+        // Check for empty prompt
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            errorMessage = "Prompt cannot be empty. Please enter valid content."
+            displayToast(message: errorMessage ?? "Prompt is empty", type: .error)
+            return false
+        }
+        
+        return true
+    }
+    
     /// Generates an improved version of the prompt using the selected LLM
     private func generateImprovement() async {
+        guard let prompt = prompt else {
+            displayToast(message: "No prompt found to improve", type: .error)
+            return
+        }
+        
         // Update UI state
         await MainActor.run {
             errorMessage = nil
-            isImproving = true
+            isImproving = false
+            isValidatingPrompt = true
             improvedText = ""
             reasoningText = ""
             showReasoning = false
+            retryCount = 0
         }
         
-        do {
-            // Request improved prompt from store
-            let result = await withCheckedContinuation { continuation in
-                store.improvePromptWithLLM(promptID: promptID, useReasoning: useReasoning) { result in
-                    continuation.resume(returning: result)
+        // Validate prompt before sending
+        let isValid = await MainActor.run {
+            return validatePrompt(prompt.text)
+        }
+        
+        if !isValid {
+            await MainActor.run {
+                isValidatingPrompt = false
+            }
+            return
+        }
+        
+        await MainActor.run {
+            isValidatingPrompt = false
+            isImproving = true
+        }
+        
+        // Check if we need to use an alternative provider due to missing API key
+        var modelToUse = store.selectedLLMModel
+        if !isAPIKeyConfigured && !configuredProviders.isEmpty {
+            // Find the first configured provider and use its first model
+            if let firstAvailableProvider = configuredProviders.first,
+               let firstModel = firstAvailableProvider.models.first {
+                modelToUse = firstModel
+                await MainActor.run {
+                    displayToast(message: "Using \(firstModel.displayName) instead (API key configured)", type: .info)
                 }
             }
+        }
+        
+        // Try improvement with retry mechanism
+        var shouldRetry = false
+        var result: Result<String, Error>? = nil
+        
+        repeat {
+            shouldRetry = false
             
-            // Update UI with result
-            await MainActor.run {
-                isImproving = false
+            do {
+                // Request improved prompt from store with potentially different model
+                result = await withCheckedContinuation { continuation in
+                    // Use temporary override of the model if needed
+                    let originalModel = store.selectedLLMModel
+                    if modelToUse != originalModel {
+                        store.selectedLLMModel = modelToUse
+                    }
+                    
+                    store.improvePromptWithLLM(promptID: promptID, useReasoning: useReasoning) { result in
+                        // Restore original model selection if changed
+                        if modelToUse != originalModel {
+                            Task { @MainActor in
+                                store.selectedLLMModel = originalModel
+                            }
+                        }
+                        continuation.resume(returning: result)
+                    }
+                }
                 
+                // If we get a network error, retry up to 3 times
+                if case .failure(let error) = result {
+                    let nsError = error as NSError
+                    if (nsError.domain == "NetworkError" || nsError.domain == "TimeoutError") && retryCount < 3 {
+                        retryCount += 1
+                        shouldRetry = true
+                        
+                        // Add exponential backoff
+                        let backoffTime = Double(1 << retryCount) * 0.5 // 1s, 2s, 4s
+                        await MainActor.run {
+                            displayToast(message: "Network issue, retrying in \(backoffTime)s (Attempt \(retryCount)/3)", type: .warning)
+                        }
+                        
+                        // Wait before retrying
+                        try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
+                    } else if nsError.domain == "APIKeyNotFound" && !configuredProviders.isEmpty {
+                        // Try a different provider if this one's API key is missing or invalid
+                        if let nextProvider = configuredProviders.first(where: { $0 != modelToUse.provider }),
+                           let alternativeModel = nextProvider.models.first {
+                            modelToUse = alternativeModel
+                            await MainActor.run {
+                                displayToast(message: "Trying with \(alternativeModel.displayName) instead", type: .info)
+                            }
+                            shouldRetry = true
+                        }
+                    }
+                }
+            } catch {
+                // Handle task cancellation
+                if error is CancellationError {
+                    await MainActor.run {
+                        isImproving = false
+                        displayToast(message: "Improvement cancelled", type: .info)
+                    }
+                    return
+                }
+                
+                result = .failure(error)
+            }
+        } while shouldRetry && !Task.isCancelled
+        
+        // Update UI with result
+        await MainActor.run {
+            isImproving = false
+            
+            if let result = result {
                 switch result {
                 case .success(let improved):
                     parseLLMResponse(improved)
-                    displayToast(message: "Prompt improved successfully", type: .success)
+                    
+                    // Show message about which model was actually used if different
+                    if modelToUse != store.selectedLLMModel {
+                        displayToast(message: "Prompt improved successfully with \(modelToUse.displayName)", type: .success)
+                    } else {
+                        displayToast(message: "Prompt improved successfully", type: .success)
+                    }
+                    
                 case .failure(let error):
                     handleError(error)
                 }
-            }
-        } catch {
-            // Handle any unexpected errors
-            await MainActor.run {
-                isImproving = false
-                handleError(error)
             }
         }
     }
@@ -392,8 +614,14 @@ struct PromptImproveView: View {
     /// Parses the response from the LLM, separating reasoning from improved prompt
     private func parseLLMResponse(_ response: String) {
         // Support multiple formats of LLM responses
-        let reasoningMarkers = ["REASONING:", "Reasoning:", "REASONING PROCESS:", "Here's my reasoning:"]
-        let promptMarkers = ["IMPROVED PROMPT:", "Improved Prompt:", "FINAL PROMPT:", "Here's the improved prompt:"]
+        let reasoningMarkers = [
+            "REASONING:", "Reasoning:", "REASONING PROCESS:", "Here's my reasoning:", 
+            "RATIONALE:", "Rationale:", "MY THOUGHT PROCESS:", "My thought process:"
+        ]
+        let promptMarkers = [
+            "IMPROVED PROMPT:", "Improved Prompt:", "FINAL PROMPT:", "Here's the improved prompt:",
+            "REVISED PROMPT:", "Revised Prompt:", "NEW PROMPT:", "IMPROVED VERSION:", "RESULT:"
+        ]
         
         // Find reasoning section
         var foundReasoning = false
@@ -426,6 +654,40 @@ struct PromptImproveView: View {
                 
                 if foundReasoning && foundPrompt {
                     break
+                }
+            }
+        }
+        
+        // Check for JSON format - some models return structured data
+        if !foundReasoning && !foundPrompt && response.contains("{") && response.contains("}") {
+            if let startIndex = response.firstIndex(of: "{"), 
+               let endIndex = response.lastIndex(of: "}"), 
+               startIndex < endIndex {
+                
+                let jsonSubstring = response[startIndex...endIndex]
+                let jsonString = String(jsonSubstring)
+                
+                do {
+                    if let data = jsonString.data(using: .utf8),
+                       let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        
+                        // Check for common JSON keys used by different models
+                        if let improvedPrompt = json["improved_prompt"] as? String ?? 
+                                           json["improvedPrompt"] as? String ??
+                                           json["result"] as? String {
+                            improved = improvedPrompt
+                            foundPrompt = true
+                        }
+                        
+                        if let reasoningExplanation = json["reasoning"] as? String ??
+                                                json["explanation"] as? String ??
+                                                json["rationale"] as? String {
+                            reasoning = reasoningExplanation
+                            foundReasoning = true
+                        }
+                    }
+                } catch {
+                    // JSON parsing failed, continue with other methods
                 }
             }
         }
@@ -548,6 +810,128 @@ struct PromptImproveView: View {
             object: nil,
             userInfo: ["message": message, "type": type.rawValue]
         )
+    }
+}
+
+// MARK: - SuggestionRow
+/// A view that shows differences between original and improved prompts
+struct SuggestionRow: View {
+    let original: String
+    let improved: String
+    let textColor: Color
+    let backgroundColor: Color
+    
+    @State private var isExpanded = false
+    
+    private var diffLines: [(original: String?, improved: String?, isDifferent: Bool)] {
+        return computeDiff(original: original, improved: improved)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button(action: {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack {
+                    Text("Differences")
+                        .font(.subheadline.bold())
+                    
+                    Spacer()
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.plain)
+            
+            if isExpanded {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(0..<diffLines.count, id: \.self) { index in
+                            let diff = diffLines[index]
+                            
+                            if diff.isDifferent {
+                                HStack(alignment: .top, spacing: 10) {
+                                    if let original = diff.original {
+                                        Text(original)
+                                            .foregroundColor(.red)
+                                            .strikethrough()
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(4)
+                                            .background(Color.red.opacity(0.1))
+                                            .cornerRadius(4)
+                                    } else {
+                                        Spacer()
+                                    }
+                                    
+                                    if let improved = diff.improved {
+                                        Text(improved)
+                                            .foregroundColor(.green)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(4)
+                                            .background(Color.green.opacity(0.1))
+                                            .cornerRadius(4)
+                                    } else {
+                                        Spacer()
+                                    }
+                                }
+                            } else if let text = diff.original {
+                                Text(text)
+                                    .foregroundColor(textColor)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Show a summary of differences when collapsed
+                HStack {
+                    Text("Click to see \(diffLines.filter { $0.isDifferent }.count) differences")
+                        .font(.caption)
+                        .foregroundColor(textColor.opacity(0.7))
+                    
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+            }
+            
+            Divider()
+            
+            // Complete improved text
+            Text("Complete Improved Text:")
+                .font(.subheadline.bold())
+                .padding(.top, 4)
+            
+            Text(improved)
+                .foregroundColor(textColor)
+        }
+        .padding()
+        .background(backgroundColor)
+        .cornerRadius(8)
+        .animation(.easeInOut(duration: 0.2), value: isExpanded)
+    }
+    
+    // Simple diffing algorithm to find differences between original and improved
+    private func computeDiff(original: String, improved: String) -> [(original: String?, improved: String?, isDifferent: Bool)] {
+        let originalLines = original.components(separatedBy: .newlines)
+        let improvedLines = improved.components(separatedBy: .newlines)
+        
+        var result: [(original: String?, improved: String?, isDifferent: Bool)] = []
+        
+        // Simple line-by-line diff
+        let maxLen = max(originalLines.count, improvedLines.count)
+        
+        for i in 0..<maxLen {
+            let originalLine = i < originalLines.count ? originalLines[i] : nil
+            let improvedLine = i < improvedLines.count ? improvedLines[i] : nil
+            
+            let isDifferent = originalLine != improvedLine
+            result.append((originalLine, improvedLine, isDifferent))
+        }
+        
+        return result
     }
 }
 

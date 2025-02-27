@@ -4,7 +4,7 @@ import SwiftUI
 // This file is used to test that all types are correctly defined
 // and accessible in the module
 
-struct TypeTest {
+public struct TypeTest {
     // Test PromptStore and its dependencies
     @ObservedObject private var store: PromptStore = PromptStore()
     
@@ -39,8 +39,10 @@ struct TypeTest {
         type: .general
     )
     
+    public init() {}
+    
     // Test function to make sure everything is visible
-    func runTest() {
+    public func runTest() {
         print("Store: \(store)")
         print("Model: \(model.displayName)")
         print("Provider: \(provider.displayName)")
