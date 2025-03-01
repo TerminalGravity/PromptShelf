@@ -1,49 +1,7 @@
 // Define the module structure for the PromptShelf app
-// This allows for explicit imports like `import PromptShelf.Models`
+// No submodules - flat structure
 
 module PromptShelf {
     umbrella header "PromptShelf.h"
-    
     export *
-    module * { export * }
-    
-    // Core Models module - contains all type definitions
-    explicit module Models {
-        header "Models.swift"
-        header "Models/Types.swift"
-        header "Models/CoreModels.swift"
-        header "Models/LLMModels.swift"
-        header "Models/PromptShelfTypes.swift"
-        header "Models/PromptStoreModel.swift"
-        export *
-    }
-    
-    // Settings module - uses types from Models
-    explicit module Settings {
-        header "Settings/SettingsModels.swift"
-        header "Settings/SettingsViewModel.swift"
-        export *
-        
-        // Ensure Settings module can access Models
-        use PromptShelf.Models
-    }
-    
-    // Services module - uses types from Models
-    explicit module Services {
-        header "Services/PromptStore.swift"
-        export *
-        
-        // Ensure Services module can access Models
-        use PromptShelf.Models
-    }
-    
-    // Templates module - contains template files that should not be compiled directly
-    explicit module Templates {
-        header "Templates/ServiceTemplate.swift"
-        header "Templates/ViewModelTemplate.swift"
-        header "Templates/SwiftFileTemplate.swift"
-        header "Templates/TestTemplate.swift"
-        header "Templates/ViewTemplate.swift"
-        export *
-    }
 } 

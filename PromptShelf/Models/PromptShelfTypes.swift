@@ -2,7 +2,8 @@ import Foundation
 import SwiftUI
 import Combine
 
-// This file is now just a placeholder to maintain the file structure
-// All type aliases are now defined in Types.swift
+// MARK: - PromptShelf Types
+// This file re-exports the types defined in Models.swift
+// to maintain backward compatibility
 
-// No additional implementations needed here as they're already in Types.swift 
+// No direct implementations - all types are in Models.swift 

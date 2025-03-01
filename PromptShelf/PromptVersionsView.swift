@@ -114,7 +114,7 @@ struct PromptVersionsView: View {
                         Toggle("Compare Mode", isOn: $compareMode)
                             .toggleStyle(SwitchToggleStyle())
                             .foregroundColor(textColor)
-                            .onChange(of: compareMode) { newValue in
+                            .onChange(of: compareMode) { oldValue, newValue in
                                 if !newValue {
                                     compareVersionID = nil
                                 }
@@ -285,7 +285,7 @@ struct PromptVersionsView: View {
                         .onAppear {
                             notesText = selectedVersion.notes ?? ""
                         }
-                        .onChange(of: selectedVersionID) { newValue in
+                        .onChange(of: selectedVersionID) { oldValue, newValue in
                             if let id = newValue, let version = versions.first(where: { $0.id == id }) {
                                 notesText = version.notes ?? ""
                             }
@@ -347,26 +347,24 @@ struct PromptVersionsView: View {
             return
         }
         
-        // Use Task to handle async operations
-        await Task {
+        // Use Task to handle operations
+        Task {
             // Create a mutable copy of the prompt
             var updatedPrompt = prompt
             updatedPrompt.versions[versionIndex].notes = notesText
             
             // Save the updated prompt
-            let success = store.savePrompt(updatedPrompt)
+            store.prompts[updatedPrompt.id] = updatedPrompt
+            let success = store.savePrompts()
             
-            if success {
-                store.savePrompts()
-                await MainActor.run {
+            await MainActor.run {
+                if success {
                     displayToast(message: "Notes saved successfully", type: .success)
-                }
-            } else {
-                await MainActor.run {
+                } else {
                     displayToast(message: "Failed to save notes", type: .error)
                 }
             }
-        }.value
+        }
     }
     
     private func restoreVersion(_ version: PromptVersion) async {
@@ -397,13 +395,14 @@ struct PromptVersionsView: View {
             return
         }
         
-        await Task {
+        Task {
             // Create a mutable copy of the prompt
             var updatedPrompt = prompt
             updatedPrompt.versions.remove(at: versionIndex)
             
             // Save the updated prompt
-            let success = store.savePrompt(updatedPrompt)
+            store.prompts[updatedPrompt.id] = updatedPrompt
+            let success = store.savePrompts()
             
             await MainActor.run {
                 if success {
@@ -412,13 +411,12 @@ struct PromptVersionsView: View {
                         selectedVersionID = updatedPrompt.versions.first?.id
                     }
                     
-                    store.savePrompts()
                     displayToast(message: "Version deleted", type: .success)
                 } else {
                     displayToast(message: "Failed to delete version", type: .error)
                 }
             }
-        }.value
+        }
     }
     
     private func copyToClipboard(_ text: String) {
@@ -685,7 +683,7 @@ struct ComparisonView: View {
                         .background(olderBackgroundColor)
                         .cornerRadius(8)
                     }
-                    .onChange(of: scrollOffset) { newValue in
+                    .onChange(of: scrollOffset) { oldValue, newValue in
                         if syncScrolling {
                             // This would be implemented with a ScrollViewReader in a real app
                         }
@@ -728,7 +726,7 @@ struct ComparisonView: View {
                         .background(newerBackgroundColor)
                         .cornerRadius(8)
                     }
-                    .onChange(of: scrollOffset) { newValue in
+                    .onChange(of: scrollOffset) { oldValue, newValue in
                         if syncScrolling {
                             // This would be implemented with a ScrollViewReader in a real app
                         }

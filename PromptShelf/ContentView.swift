@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct ContentView: View {
     @EnvironmentObject private var store: PromptStore
@@ -64,7 +65,7 @@ struct ContentView: View {
             VStack {
                 if selectedFolder != nil {
                     // Folder-based filtering
-                    let folderPrompts = store.prompts.filter { $0.folder == selectedFolder }
+                    let folderPrompts = store.prompts.values.filter { $0.folder == selectedFolder }
                     if !folderPrompts.isEmpty {
                         List(folderPrompts, selection: $selectedPrompt) { prompt in
                             Text(prompt.title)
@@ -370,31 +371,36 @@ struct ContentView: View {
         ) { notification in
             let errorMessage = (notification.userInfo?["error"] as? String) ?? "Unknown error"
             
-            // Display error notification
-            let notification = NSUserNotification()
-            notification.title = "Prompt Improvement Failed"
-            notification.informativeText = errorMessage
-            notification.soundName = NSUserNotificationDefaultSoundName
-            NSUserNotificationCenter.default.deliver(notification)
+            // Display error notification using UserNotifications framework
+            let content = UNMutableNotificationContent()
+            content.title = "Prompt Improvement Failed"
+            content.body = errorMessage
+            content.sound = UNNotificationSound.default
+            
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request)
             
             isImproving = false
         }
         
         // Call improve function with reasoning mode parameter
-        store.improvePromptWithLLM(promptId: promptId, useReasoning: useReasoningMode) { success, errorMessage in
+        store.improvePromptWithLLM(promptID: promptId, useReasoning: useReasoningMode) { result in
             isImproving = false
             
             // Remove notification observers
             notificationCenter.removeObserver(startObserver)
             notificationCenter.removeObserver(failObserver)
             
-            if !success, let errorMessage = errorMessage {
-                // Create and show an error alert
-                let notification = NSUserNotification()
-                notification.title = "Prompt Improvement Failed"
-                notification.informativeText = errorMessage
-                notification.soundName = NSUserNotificationDefaultSoundName
-                NSUserNotificationCenter.default.deliver(notification)
+            if case let .failure(error) = result {
+                let errorMessage = error.localizedDescription
+                // Create and show an error alert using UserNotifications framework
+                let content = UNMutableNotificationContent()
+                content.title = "Prompt Improvement Failed"
+                content.body = errorMessage
+                content.sound = UNNotificationSound.default
+                
+                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+                UNUserNotificationCenter.current().add(request)
             }
         }
     }

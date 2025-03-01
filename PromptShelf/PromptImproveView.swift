@@ -416,7 +416,7 @@ struct PromptImproveView: View {
         .padding()
         .frame(width: 700, height: 600)
         .background(backgroundColor)
-        .onChange(of: store.selectedLLMModel) { newModel in
+        .onChange(of: store.selectedLLMModel) { oldModel, newModel in
             Task { @MainActor in
                 // Update UI to show model is changing
                 isModelChanging = true

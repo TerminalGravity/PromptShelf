@@ -1,24 +1,25 @@
 import Foundation
 import SwiftUI
 
-// This file tests whether the module system is working correctly
-// It tries to import the Models module and use types from it
+// This file tests the app's type system
+// It uses types defined directly in Models.swift
 
-// Import the Models file directly
-import Foundation
-import SwiftUI
-// No need to import PromptShelf.Models as we're in the same module
-
-// Test struct that uses types from the Models module
 struct ModuleTest {
-    // Try to use types from the Models module
+    // Use the types directly
     let provider: ModelProvider = .openAI
     let model: LLMModel = .gpt4
     let toastType: ToastType = .info
     
-    // Function to test if we can create instances of types from the Models module
+    // Function to test if we can create instances of types
     func testTypes() {
-        let prompt = Prompt(id: UUID(), title: "Test", text: "Test prompt", type: .general, tags: [], versions: [])
+        let prompt = Prompt(
+            id: UUID(),
+            title: "Test",
+            text: "Test prompt",
+            type: .general,
+            tags: [],
+            versions: []
+        )
         print("Created prompt: \(prompt.title)")
     }
 } 

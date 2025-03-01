@@ -2,7 +2,10 @@ import Foundation
 import SwiftUI
 import Combine
 
-// This file is now just a placeholder to maintain the file structure
-// All core model types are defined in Models/Types.swift
+// MARK: - Core Models
+// This file re-exports the core model types defined in Models.swift
+// to maintain backward compatibility
 
-// No additional implementations needed here 
+// Re-export core Foundation types
+@_exported import struct Foundation.UUID
+@_exported import struct Foundation.Date 
