@@ -5,7 +5,7 @@ struct ImportExportView: View {
     @ObservedObject var store: PromptStore
     @Environment(\.dismiss) var dismiss
     @State private var exportSelection: ExportSelection = .all
-    @State private var selectedFolder: String? = nil
+    @State private var selectedFolder: String? = "General"
     @State private var showExportSuccessAlert = false
     @State private var showExportErrorAlert = false
     @State private var showImportSuccessAlert = false
@@ -39,6 +39,11 @@ struct ImportExportView: View {
                             }
                         }
                         .disabled(store.folders().isEmpty)
+                        .onAppear {
+                            if selectedFolder == nil && !store.folders().isEmpty {
+                                selectedFolder = store.folders().first
+                            }
+                        }
                     }
                     
                     Button("Export to JSON File") {

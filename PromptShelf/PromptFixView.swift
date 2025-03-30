@@ -22,7 +22,7 @@ struct PromptFixView: View {
     @State private var validationResults = ""
     
     private var prompt: Prompt? {
-        store.prompts.first(where: { $0.id == promptID })
+        store.prompts[promptID]
     }
     
     var body: some View {
@@ -143,16 +143,9 @@ struct PromptFixView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 5) {
-                    ForEach(possibleIssues.filter { $0.selected }, id: \.id) { issue in
-                        Toggle(isOn: Binding(
-                            get: { issue.critical },
-                            set: { newValue in
-                                if let index = possibleIssues.firstIndex(where: { $0.id == issue.id }) {
-                                    possibleIssues[index].critical = newValue
-                                }
-                            }
-                        )) {
-                            Text(issue.text)
+                    ForEach(possibleIssues.indices.filter { possibleIssues[$0].selected }, id: \.self) { index in
+                        Toggle(isOn: $possibleIssues[index].critical) {
+                            Text(possibleIssues[index].text)
                                 .font(.body)
                         }
                         .toggleStyle(.checkbox)
@@ -193,12 +186,14 @@ struct PromptFixView: View {
                 Spacer()
                 
                 Button(action: validateWithLLM) {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .scaleEffect(0.8)
-                    } else {
-                        Text("Run Test")
+                    Group {
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .scaleEffect(0.8)
+                        } else {
+                            Text("Run Test")
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -229,12 +224,14 @@ struct PromptFixView: View {
             if fixedText.isEmpty {
                 VStack {
                     Button(action: generateFixWithLLM) {
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .scaleEffect(0.8)
-                        } else {
-                            Text("Generate Fix with LLM")
+                        Group {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .scaleEffect(0.8)
+                            } else {
+                                Text("Generate Fix with LLM")
+                            }
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -351,9 +348,9 @@ struct PromptFixView: View {
         
         // Call the LLM with the validation prompt
         let llmRequest = LLMRequest(
-            apiKey: store.getAPIKey(service: store.selectedLLMModel.rawValue) ?? "",
             prompt: validationPrompt,
-            model: store.selectedLLMModel.rawValue
+            model: store.selectedLLMModel,
+            useReasoning: false
         )
         
         llmRequest.fetchImprovement { result in
@@ -400,9 +397,9 @@ struct PromptFixView: View {
         
         // Call the LLM with the fix prompt
         let llmRequest = LLMRequest(
-            apiKey: store.getAPIKey(service: store.selectedLLMModel.rawValue) ?? "",
             prompt: fixPrompt,
-            model: store.selectedLLMModel.rawValue
+            model: store.selectedLLMModel,
+            useReasoning: false
         )
         
         llmRequest.fetchImprovement { result in
@@ -436,11 +433,11 @@ struct PromptFixView: View {
         \(userNotes)
         """
         
-        store.savePromptVersion(
+        _ = store.savePromptVersion(
             id: promptID, 
             text: fixedText,
             improvedByLLM: true,
-            llmModel: store.selectedLLMModel.rawValue,
+            llmModel: store.selectedLLMModel.rawValue,  // This method expects a String
             notes: notes
         )
         
@@ -475,9 +472,13 @@ struct StepProgressView: View {
                         .fill(step.rawValue <= currentStep.rawValue ? Color.green : Color.gray.opacity(0.3))
                         .frame(width: 20, height: 20)
                         .overlay(
-                            step.rawValue < currentStep.rawValue ?
-                            Image(systemName: "checkmark").foregroundColor(.white).font(.caption) :
-                            Text("\(step.rawValue + 1)").foregroundColor(.white).font(.caption)
+                            Group {
+                                if step.rawValue < currentStep.rawValue {
+                                    Image(systemName: "checkmark").foregroundColor(.white).font(.caption)
+                                } else {
+                                    Text("\(step.rawValue + 1)").foregroundColor(.white).font(.caption)
+                                }
+                            }
                         )
                     
                     Text(step.title)

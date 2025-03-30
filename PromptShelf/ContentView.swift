@@ -2,7 +2,7 @@ import SwiftUI
 import UserNotifications
 
 struct ContentView: View {
-    @EnvironmentObject private var store: PromptStore
+    @StateObject private var store = PromptStore()
     @State private var selectedFolder: String? = nil
     @State private var selectedPrompt: Prompt.ID? = nil
     @State private var selectedPromptType: PromptType = .general
@@ -25,232 +25,11 @@ struct ContentView: View {
     
     var body: some View {
         NavigationSplitView {
-            // Sidebar: Types and Folders
-            VStack {
-                // Types section
-                Section {
-                    List(PromptType.allCases, id: \.self, selection: $selectedPromptType) { type in
-                        HStack {
-                            TypeIcon(type: type)
-                            Text(type.rawValue)
-                                .font(.system(.body, design: .rounded))
-                        }
-                        .tag(type)
-                    }
-                } header: {
-                    Text("Categories")
-                        .font(.headline)
-                        .padding(.leading, 10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
-                Divider()
-                
-                // Folders section
-                Section {
-                    List(store.folders(), id: \.self, selection: $selectedFolder) { folder in
-                        Text(folder)
-                            .font(.system(.body, design: .rounded))
-                    }
-                } header: {
-                    Text("Folders")
-                        .font(.headline)
-                        .padding(.leading, 10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .frame(minWidth: 180)
+            sidebarView
         } content: {
-            // Middle: Prompt List
-            VStack {
-                if selectedFolder != nil {
-                    // Folder-based filtering
-                    let folderPrompts = store.prompts.values.filter { $0.folder == selectedFolder }
-                    if !folderPrompts.isEmpty {
-                        List(folderPrompts, selection: $selectedPrompt) { prompt in
-                            Text(prompt.title)
-                                .font(.system(.body, design: .rounded))
-                                .tag(prompt.id)
-                        }
-                        .navigationTitle(selectedFolder ?? "")
-                    } else {
-                        Text("No prompts in this folder")
-                            .foregroundColor(.gray)
-                    }
-                } else {
-                    // Type-based filtering
-                    let typePrompts = store.promptsByType(type: selectedPromptType)
-                    if !typePrompts.isEmpty {
-                        List(typePrompts, selection: $selectedPrompt) { prompt in
-                            Text(prompt.title)
-                                .font(.system(.body, design: .rounded))
-                                .tag(prompt.id)
-                        }
-                        .navigationTitle(selectedPromptType.rawValue)
-                    } else {
-                        Text("No \(selectedPromptType.rawValue) prompts")
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
-            .frame(minWidth: 200)
+            promptListView
         } detail: {
-            // Right: Prompt Preview or Edit View
-            if let promptID = selectedPrompt,
-               let prompt = store.prompts.first(where: { $0.id == promptID }) {
-                if isEditing {
-                    // Edit Mode
-                    VStack(alignment: .leading, spacing: 10) {
-                        TextField("Title", text: .constant(prompt.title))
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(true)
-                        
-                        TextEditor(text: $editedPromptText)
-                            .frame(height: 200)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5)))
-                        
-                        HStack {
-                            Spacer()
-                            Button("Cancel") {
-                                isEditing = false
-                                editedPromptText = prompt.text
-                            }
-                            Button("Save") {
-                                if let index = store.prompts.firstIndex(where: { $0.id == promptID }) {
-                                    store.updatePromptText(id: promptID, newText: editedPromptText)
-                                }
-                                isEditing = false
-                            }
-                            .disabled(editedPromptText.isEmpty)
-                        }
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    // View Mode
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text(prompt.title)
-                                .font(.title2.bold())
-                            
-                            Spacer()
-                            
-                            TypeTag(type: prompt.type)
-                        }
-                        
-                        ScrollView {
-                            Text(prompt.text)
-                                .font(.body)
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(NSColor.textBackgroundColor))
-                                .cornerRadius(8)
-                        }
-                        
-                        HStack {
-                            Group {
-                                // Show specialized improvement options based on prompt type
-                                switch prompt.type {
-                                case .cursorFix:
-                                    Button(action: {
-                                        showPromptFixView = true
-                                    }) {
-                                        Label("Cursor Fix", systemImage: "cursorarrow.rays")
-                                    }
-                                    .help("Use Cursor Fix workflow to improve this prompt")
-                                    
-                                case .plannerMode:
-                                    Button(action: {
-                                        showPlannerView = true
-                                    }) {
-                                        Label("Planner Mode", systemImage: "chart.bar.doc.horizontal")
-                                    }
-                                    .help("Use Planner Mode workflow to improve this prompt")
-                                    
-                                case .general:
-                                    Button(action: {
-                                        showImproveView = true
-                                    }) {
-                                        Label("Improve", systemImage: "sparkles")
-                                    }
-                                    .help("Improve with LLM")
-                                }
-                            }
-                            
-                            Button(action: {
-                                showVersionsView = true
-                            }) {
-                                Label("Versions", systemImage: "clock.arrow.circlepath")
-                            }
-                            .help("View saved versions")
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                let pasteboard = NSPasteboard.general
-                                pasteboard.clearContents()
-                                pasteboard.setString(prompt.text, forType: .string)
-                            }) {
-                                Image(systemName: "doc.on.doc")
-                                    .frame(width: 20, height: 20)
-                            }
-                            .buttonStyle(.bordered)
-                            .help("Copy prompt to clipboard")
-                            
-                            Button(action: {
-                                isEditing = true
-                                editedPromptText = prompt.text
-                            }) {
-                                Image(systemName: "pencil")
-                                    .frame(width: 20, height: 20)
-                            }
-                            .buttonStyle(.bordered)
-                            .help("Edit prompt")
-                        }
-                        .padding(.top, 10)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    // Action buttons
-                    HStack {
-                        if store.selectedLLMModel.hasReasoningCapability {
-                            Toggle("Use reasoning", isOn: $useReasoningMode)
-                                .toggleStyle(SwitchToggleStyle())
-                                .help("When enabled, the AI will explain its reasoning process when improving the prompt")
-                                .onChange(of: useReasoningMode) { newValue in
-                                    if newValue {
-                                        showsReasoningToast = true
-                                        // Display toast for 4 seconds
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                                            showsReasoningToast = false
-                                        }
-                                    }
-                                }
-                        }
-                        
-                        Button(action: {
-                            improveWithLLM(promptId: promptID)
-                        }) {
-                            HStack {
-                                if isImproving {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                        .padding(.trailing, 2)
-                                }
-                                Text("Improve with \(store.selectedLLMModel.displayName)")
-                                    .fontWeight(.medium)
-                            }
-                            .frame(height: 24)
-                        }
-                        .disabled(isImproving || store.getAPIKey(service: store.selectedLLMModel.rawValue) == nil)
-                        .help(store.getAPIKey(service: store.selectedLLMModel.rawValue) == nil ? "Please set an API key in settings" : "Improve this prompt using AI")
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 5)
-                }
-            }
-            .frame(minWidth: 200)
+            detailView
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -281,7 +60,26 @@ struct ContentView: View {
             ImportExportView(store: store)
         }
         .sheet(isPresented: $showSettingsView) {
-            SettingsView(store: store)
+            ZStack {
+                Text("Settings")
+                    .font(.title)
+                
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            showSettingsView = false
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                        }
+                        .buttonStyle(.plain)
+                        .padding()
+                    }
+                    Spacer()
+                }
+            }
         }
         .sheet(isPresented: $showVersionsView) {
             if let promptID = selectedPrompt {
@@ -346,6 +144,279 @@ struct ContentView: View {
                 }
             }
         )
+    }
+    
+    // MARK: - Sidebar View
+    private var sidebarView: some View {
+        VStack {
+            // Types section
+            Section {
+                List(PromptType.allCases, id: \.self, selection: $selectedPromptType) { type in
+                    HStack {
+                        TypeIcon(type: type)
+                        Text(type.rawValue)
+                            .font(.system(.body, design: .rounded))
+                    }
+                    .tag(type)
+                }
+            } header: {
+                Text("Categories")
+                    .font(.headline)
+                    .padding(.leading, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            Divider()
+            
+            // Folders section
+            Section {
+                List(store.folders(), id: \.self, selection: $selectedFolder) { folder in
+                    Text(folder)
+                        .font(.system(.body, design: .rounded))
+                }
+            } header: {
+                Text("Folders")
+                    .font(.headline)
+                    .padding(.leading, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(minWidth: 180)
+    }
+    
+    // MARK: - Prompt List View
+    private var promptListView: some View {
+        VStack {
+            if selectedFolder != nil {
+                folderPromptsView
+            } else {
+                typePromptsView
+            }
+        }
+        .frame(minWidth: 200)
+    }
+    
+    private var folderPromptsView: some View {
+        let folderPrompts = store.prompts.values.filter { $0.folder == selectedFolder }
+        
+        return Group {
+            if !folderPrompts.isEmpty {
+                List(folderPrompts, selection: $selectedPrompt) { prompt in
+                    Text(prompt.title)
+                        .font(.system(.body, design: .rounded))
+                        .tag(prompt.id)
+                }
+                .navigationTitle(selectedFolder ?? "")
+            } else {
+                Text("No prompts in this folder")
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+    
+    private var typePromptsView: some View {
+        let typePrompts = Array(store.prompts.values.filter { $0.type == selectedPromptType })
+        
+        return Group {
+            if !typePrompts.isEmpty {
+                List(typePrompts, selection: $selectedPrompt) { prompt in
+                    Text(prompt.title)
+                        .font(.system(.body, design: .rounded))
+                        .tag(prompt.id)
+                }
+                .navigationTitle(selectedPromptType.rawValue)
+            } else {
+                Text("No \(selectedPromptType.rawValue) prompts")
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+    
+    // MARK: - Detail View
+    private var detailView: some View {
+        Group {
+            if let promptID = selectedPrompt, 
+               let prompt = store.prompts[promptID] {
+                if isEditing {
+                    promptEditView(prompt: prompt, promptID: promptID)
+                } else {
+                    promptViewMode(prompt: prompt, promptID: promptID)
+                }
+            }
+        }
+        .frame(minWidth: 200)
+    }
+    
+    private func promptEditView(prompt: Prompt, promptID: UUID) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Title", text: .constant(prompt.title))
+                .textFieldStyle(.roundedBorder)
+                .disabled(true)
+            
+            TextEditor(text: $editedPromptText)
+                .frame(height: 200)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5)))
+            
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    isEditing = false
+                    editedPromptText = prompt.text
+                }
+                Button("Save") {
+                    if var prompt = store.prompts[promptID] {
+                        prompt.text = editedPromptText
+                        store.prompts[promptID] = prompt
+                    }
+                    isEditing = false
+                }
+                .disabled(editedPromptText.isEmpty)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func promptViewMode(prompt: Prompt, promptID: UUID) -> some View {
+        VStack {
+            promptHeader(prompt: prompt)
+            
+            promptContent(prompt: prompt)
+            
+            promptActionButtons(prompt: prompt)
+            
+            LLMActionButtons(promptID: promptID)
+        }
+    }
+    
+    private func promptHeader(prompt: Prompt) -> some View {
+        HStack {
+            Text(prompt.title)
+                .font(.title2.bold())
+            
+            Spacer()
+            
+            TypeTag(type: prompt.type)
+        }
+        .padding(.horizontal)
+        .padding(.top)
+    }
+    
+    private func promptContent(prompt: Prompt) -> some View {
+        ScrollView {
+            Text(prompt.text)
+                .font(.body)
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(8)
+        }
+        .padding(.horizontal)
+    }
+    
+    private func promptActionButtons(prompt: Prompt) -> some View {
+        HStack {
+            Group {
+                // Show specialized improvement options based on prompt type
+                switch prompt.type {
+                case .cursorFix:
+                    Button(action: {
+                        showPromptFixView = true
+                    }) {
+                        Label("Cursor Fix", systemImage: "cursorarrow.rays")
+                    }
+                    .help("Use Cursor Fix workflow to improve this prompt")
+                    
+                case .plannerMode:
+                    Button(action: {
+                        showPlannerView = true
+                    }) {
+                        Label("Planner Mode", systemImage: "chart.bar.doc.horizontal")
+                    }
+                    .help("Use Planner Mode workflow to improve this prompt")
+                    
+                default:
+                    Button(action: {
+                        showImproveView = true
+                    }) {
+                        Label("Improve", systemImage: "sparkles")
+                    }
+                    .help("Improve with LLM")
+                }
+            }
+            
+            Button(action: {
+                showVersionsView = true
+            }) {
+                Label("Versions", systemImage: "clock.arrow.circlepath")
+            }
+            .help("View saved versions")
+            
+            Spacer()
+            
+            Button(action: {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(prompt.text, forType: .string)
+            }) {
+                Image(systemName: "doc.on.doc")
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.bordered)
+            .help("Copy prompt to clipboard")
+            
+            Button(action: {
+                isEditing = true
+                editedPromptText = prompt.text
+            }) {
+                Image(systemName: "pencil")
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.bordered)
+            .help("Edit prompt")
+        }
+        .padding(.horizontal)
+        .padding(.top, 10)
+    }
+    
+    private func LLMActionButtons(promptID: UUID) -> some View {
+        HStack {
+            if store.selectedLLMModel.hasReasoningCapability {
+                Toggle("Use reasoning", isOn: $useReasoningMode)
+                    .toggleStyle(SwitchToggleStyle())
+                    .help("When enabled, the AI will explain its reasoning process when improving the prompt")
+                    .onChange(of: useReasoningMode) { _, newValue in
+                        if newValue {
+                            showsReasoningToast = true
+                            // Display toast for 4 seconds
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                                showsReasoningToast = false
+                            }
+                        }
+                    }
+            }
+            
+            Button(action: {
+                improveWithLLM(promptId: promptID)
+            }) {
+                HStack {
+                    Group {
+                        if isImproving {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .padding(.trailing, 2)
+                        }
+                    }
+                    Text("Improve with \(store.selectedLLMModel.displayName)")
+                        .fontWeight(.medium)
+                }
+                .frame(height: 24)
+            }
+            .disabled(isImproving || store.getAPIKey(service: store.selectedLLMModel.rawValue) == nil)
+            .help(store.getAPIKey(service: store.selectedLLMModel.rawValue) == nil ? "Please set an API key in settings" : "Improve this prompt using AI")
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 5)
     }
     
     private func improveWithLLM(promptId: UUID) {
@@ -423,6 +494,12 @@ struct TypeIcon: View {
             return "cursorarrow.rays"
         case .plannerMode:
             return "chart.bar.doc.horizontal"
+        case .chatbot:
+            return "bubble.left.and.bubble.right"
+        case .creative:
+            return "paintbrush"
+        case .technical:
+            return "terminal"
         }
     }
     
@@ -434,6 +511,12 @@ struct TypeIcon: View {
             return .green
         case .plannerMode:
             return .purple
+        case .chatbot:
+            return .orange
+        case .creative:
+            return .pink
+        case .technical:
+            return .gray
         }
     }
 }
@@ -459,9 +542,16 @@ struct TypeTag: View {
             return .green
         case .plannerMode:
             return .purple
+        case .chatbot:
+            return .orange
+        case .creative:
+            return .pink
+        case .technical:
+            return .gray
         }
     }
 }
+
 
 // Keep the existing AddPromptView with a minor update to add PromptType
 struct AddPromptView: View {
@@ -512,13 +602,17 @@ struct AddPromptView: View {
             } else {
                 // Select Existing Folder or Create New
                 Picker("Folder", selection: $folder) {
+                    // Ensure "General" is always in the list
+                    if !store.folders().contains("General") {
+                        Text("General").tag("General")
+                    }
                     ForEach(store.folders(), id: \.self) { folderName in
                         Text(folderName).tag(folderName)
                     }
                     Text("Create New Folder...").tag("new")
                 }
                 .pickerStyle(.menu)
-                .onChange(of: folder) { newValue in
+                .onChange(of: folder) { _, newValue in
                     if newValue == "new" {
                         isCreatingNewFolder = true
                         newFolderName = ""
@@ -544,3 +638,4 @@ struct AddPromptView: View {
         .frame(width: 400, height: 400)
     }
 }
+

@@ -34,7 +34,7 @@ struct PromptPlannerView: View {
     @State private var showDiff = false
     
     private var prompt: Prompt? {
-        store.prompts.first(where: { $0.id == promptID })
+        store.prompts[promptID]
     }
     
     var body: some View {
@@ -102,7 +102,7 @@ struct PromptPlannerView: View {
         .frame(width: 700, height: 600)
         .onAppear {
             // Pre-fill the prompt goal if empty
-            if promptGoal.isEmpty, let promptText = prompt?.text {
+            if promptGoal.isEmpty, let _ = prompt?.text {
                 promptGoal = "Improve the clarity and effectiveness of this prompt"
             }
         }
@@ -464,9 +464,9 @@ struct PromptPlannerView: View {
         """
         
         let llmRequest = LLMRequest(
-            apiKey: store.getAPIKey(service: store.selectedLLMModel.rawValue) ?? "",
             prompt: analysisPrompt,
-            model: store.selectedLLMModel.rawValue
+            model: store.selectedLLMModel,
+            useReasoning: false
         )
         
         llmRequest.fetchImprovement { result in
@@ -538,9 +538,9 @@ struct PromptPlannerView: View {
         """
         
         let llmRequest = LLMRequest(
-            apiKey: store.getAPIKey(service: store.selectedLLMModel.rawValue) ?? "",
             prompt: planPrompt,
-            model: store.selectedLLMModel.rawValue
+            model: store.selectedLLMModel,
+            useReasoning: false
         )
         
         llmRequest.fetchImprovement { result in
@@ -636,9 +636,9 @@ struct PromptPlannerView: View {
         """
         
         let llmRequest = LLMRequest(
-            apiKey: store.getAPIKey(service: store.selectedLLMModel.rawValue) ?? "",
             prompt: implementPrompt,
-            model: store.selectedLLMModel.rawValue
+            model: store.selectedLLMModel,
+            useReasoning: false
         )
         
         llmRequest.fetchImprovement { result in
@@ -676,7 +676,7 @@ struct PromptPlannerView: View {
         \(planNotes)
         """
         
-        store.savePromptVersion(
+        _ = store.savePromptVersion(
             id: promptID, 
             text: improvedText,
             improvedByLLM: true,
@@ -711,29 +711,54 @@ struct StepProgressViewPlanner: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(PlannerStep.allCases, id: \.self) { step in
-                VStack {
-                    Circle()
-                        .fill(step.rawValue <= currentStep.rawValue ? Color.purple : Color.gray.opacity(0.3))
-                        .frame(width: 20, height: 20)
-                        .overlay(
-                            step.rawValue < currentStep.rawValue ?
-                            Image(systemName: "checkmark").foregroundColor(.white).font(.caption) :
-                            Text("\(step.rawValue + 1)").foregroundColor(.white).font(.caption)
-                        )
-                    
-                    Text(step.title)
-                        .font(.caption)
-                        .foregroundColor(step == currentStep ? .primary : .secondary)
-                }
+                stepView(for: step)
                 
                 if step != PlannerStep.allCases.last {
-                    Rectangle()
-                        .fill(step.rawValue < currentStep.rawValue ? Color.purple : Color.gray.opacity(0.3))
-                        .frame(height: 2)
-                        .frame(maxWidth: .infinity)
+                    connectingLine(for: step)
                 }
             }
         }
+    }
+    
+    private func stepView(for step: PlannerStep) -> some View {
+        VStack {
+            stepCircle(for: step)
+            
+            Text(step.title)
+                .font(.caption)
+                .foregroundColor(step == currentStep ? .primary : .secondary)
+        }
+    }
+    
+    private func stepCircle(for step: PlannerStep) -> some View {
+        Circle()
+            .fill(step.rawValue <= currentStep.rawValue ? Color.purple : Color.gray.opacity(0.3))
+            .frame(width: 20, height: 20)
+            .overlay {
+                stepCircleContent(for: step)
+            }
+    }
+    
+    @ViewBuilder
+    private func stepCircleContent(for step: PlannerStep) -> some View {
+        if step.rawValue < currentStep.rawValue {
+            Image(systemName: "checkmark")
+                .foregroundColor(.white)
+                .font(.caption)
+        } else {
+            if let index = PlannerStep.allCases.firstIndex(of: step) {
+                Text("\(index + 1)")
+                    .foregroundColor(.white)
+                    .font(.caption)
+            }
+        }
+    }
+    
+    private func connectingLine(for step: PlannerStep) -> some View {
+        Rectangle()
+            .fill(step.rawValue < currentStep.rawValue ? Color.purple : Color.gray.opacity(0.3))
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
     }
 }
 

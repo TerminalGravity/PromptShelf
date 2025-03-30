@@ -4,6 +4,9 @@ import AppKit
 import Combine
 
 // Type aliases to avoid import errors
+// Define enums directly rather than using typealias to avoid conflicts
+
+// These enums will be used directly in our SettingsView
 
 // Local enum for toast types
 // enum ToastType: String, Identifiable {

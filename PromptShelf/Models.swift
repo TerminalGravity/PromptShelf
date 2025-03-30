@@ -80,6 +80,19 @@ public struct LLMRequest {
         self.model = model
         self.useReasoning = useReasoning
     }
+    
+    // Extension method for fetching improvements
+    public func fetchImprovement(completion: @escaping (Result<String, Error>) -> Void) {
+        // Simplified implementation for the example
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            // Simulating a successful response
+            completion(.success("Improved text based on LLM model \(self.model.displayName)"))
+            
+            // Uncomment to test error handling
+            // let error = NSError(domain: "LLMError", code: 500, userInfo: [NSLocalizedDescriptionKey: "API error"])
+            // completion(.failure(error))
+        }
+    }
 }
 
 // Toast Type
@@ -184,9 +197,9 @@ public struct APIUsageStats: Codable {
 // Planner Step enum for PromptPlannerView
 public enum PlannerStep: String, CaseIterable, Identifiable {
     case analyze = "Analyze"
-    case questions = "Questions"
-    case plan = "Plan"
-    case improve = "Improve"
+    case clarifyQuestions = "Questions"
+    case createPlan = "Plan"
+    case implementPlan = "Improve"
     
     public var id: String { rawValue }
     
@@ -272,9 +285,10 @@ public class PromptStore: ObservableObject {
     }
     
     public func folders() -> [String] {
-        // Return all unique folders
-        let allFolders = prompts.values.compactMap { $0.folder }
-        return Array(Set(allFolders)).sorted()
+        // Return all unique folders and ensure "General" is always included
+        var allFolders = Set(prompts.values.compactMap { $0.folder })
+        allFolders.insert("General") // Always include General folder
+        return Array(allFolders).sorted()
     }
     
     public func savePrompts() -> Bool {
@@ -296,6 +310,12 @@ public class PromptStore: ObservableObject {
         )
         prompts[newPrompt.id] = newPrompt
         savePrompts()
+    }
+    
+    public func getAPIKey(service: String) -> String? {
+        // Simplified implementation - in a real app this would securely retrieve from keychain
+        // For now just return a mock key for testing
+        return "mock_api_key_for_\(service)"
     }
 }
 
